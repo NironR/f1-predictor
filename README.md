@@ -24,6 +24,8 @@ python sc_laps.py # lap-level safety car hazard -> data/sc_lap_predictions.csv
 python tyres.py   # tyre degradation per race + pre-race / in-race prediction -> data/tyre_deg.csv, tyre_shape.csv
 python sim.py 2024 11      # strategy report for one race: best 1/2/3-stop plans, Monte Carlo, SC re-planning
 python sim.py backtest     # recommended strategy vs what the top-10 cars did, 2021-2026
+python race_sim.py 2024 11 # multi-car: 1-stop vs 2-stop by expected finishing position
+python race_sim.py backtest  # ~40 min
 ```
 
 ## Data sources
@@ -75,3 +77,21 @@ re-planning at each SC ("pit now under SC or stay out?").
 - Honest result: picks the top-10 cars' stop count 47% of the time vs 54% for "what usually works at this
   track". Missing piece: track position (a stop can cost places you can't win back), which needs a
   multi-car simulation.
+
+### Multi-car simulation
+
+All 20 cars lap by lap, pace from Q1 times. A faster car has to pass the one ahead; pass chance depends
+on its pace advantage vs a per-track difficulty, calibrated so simulated on-track overtakes match the
+real count there (~4 a race at Monaco, ~57 at Las Vegas). Cars that can't pass sit in dirty air, so
+undercuts, traffic and track position emerge. A front-runner (P3) and a midfield car (P8) pick the
+plan with the better expected finishing position.
+
+Stop count (1 vs 2+) matching the top-10 cars, 115 dry races 2021-2026:
+
+| Multi-car sim | Time-only sim | Track history | Always 1-stop |
+|---|---|---|---|
+| 63% | 63% | 65% | 45% |
+
+It roughly ties track history overall, but beats it right after the 2022 rule change (72% vs 67%,
+85% vs 50% in 2023) when history from the old cars was stale, and loses in stable eras. Not yet modelled:
+reacting to safety cars mid-race, team-specific pace, and rivals choosing strategies in response.
