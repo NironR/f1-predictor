@@ -1,0 +1,42 @@
+# F1 race predictor
+
+Predicts F1 finishing order, DNF risk and safety-car / red-flag likelihood from pre-race
+information (grid, qualifying gaps, form, reliability, track history, weather), and compares
+predictions with what actually happened.
+
+Every model is tested walk-forward: each season is predicted by a model trained only on
+earlier seasons, and scored against a simple baseline.
+
+## Setup
+
+```bash
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements.txt
+```
+
+## Run
+
+```bash
+python fetch.py   # pull data into data/races.csv (first full run ~1h due to API rate limits; cached after)
+python model.py   # finishing-order model vs grid order -> data/predictions.csv
+python risk.py    # DNF + safety car models -> data/dnf_predictions.csv, data/sc_predictions.csv
+```
+
+## Data sources
+
+- [Jolpica](https://github.com/jolpica/jolpica-f1) (Ergast-compatible): results, qualifying, lap times
+- [OpenF1](https://openf1.org): race control messages (safety car / VSC / red flag), 2023+
+- [Open-Meteo](https://open-meteo.com) historical archive: rain and temperature at the circuit during the race
+
+Before 2023, safety cars / red flags are inferred from lap times (2+ of the top 3 running
+30%+ off their median pace). On 2023 races, where both sources exist, this agrees with OpenF1 95% of the time.
+
+## Results so far (2021–2026, 133 races)
+
+| Model | Baseline | Result |
+|---|---|---|
+| Finishing order | Grid order: Spearman 0.634, MAE 3.43 | Spearman 0.666, MAE 3.31 |
+| DNF probability | Average rate: Brier 0.120 | Brier 0.118, AUC 0.59 |
+| SC / red flag | Average rate: Brier 0.248 | Brier 0.245, AUC 0.55 |
+
+DNFs and safety cars turn out to be mostly unpredictable from pre-race information alone.
