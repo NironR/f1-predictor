@@ -67,6 +67,7 @@ def season_rows(season):
                 "lon": float(race["Circuit"]["Location"]["long"]),
                 "driver": r["Driver"]["driverId"], "team": r["Constructor"]["constructorId"],
                 "grid": int(r["grid"]), "position": int(r["position"]), "status": r["status"],
+                "laps": int(r["laps"]),
                 "points": float(r["points"]),
             }
     for race in paged(season, "qualifying"):
@@ -99,8 +100,9 @@ def lap_times(race, driver):
 
 
 def slow_laps(race, drivers, slow=1.3):
-    """Laps where 2+ of the top 3 ran `slow`x off their own median pace (SC / VSC / red flag).
-    Lap 1 (standing start) only counts if it's 2x off."""
+    """Lap numbers where 2+ of the top 3 ran `slow`x off their own median pace (in practice:
+    safety car or red flag; VSC laps mostly stay under 1.3x). Lap 1 (standing start) only
+    counts if it's 2x off."""
     flags = []
     for d in drivers:
         t = lap_times(race, d)
@@ -108,7 +110,39 @@ def slow_laps(race, drivers, slow=1.3):
             f = t > slow * t.iloc[1:].median()
             f.iloc[0] = t.iloc[0] > 2 * t.iloc[1:].median()
             flags.append(f)
-    return int((pd.concat(flags, axis=1).sum(axis=1) >= 2).sum()) if len(flags) >= 2 else None
+    if len(flags) < 2:
+        return None
+    slow_n = pd.concat(flags, axis=1).sum(axis=1)
+    return [int(lap) for lap in slow_n[slow_n >= 2].index]
+
+
+def runs(laps):
+    """Near-consecutive lap numbers -> [(first, last)] periods."""
+    out = []
+    for lap in sorted(laps):
+        if out and lap <= out[-1][1] + 2:  # bridge a single unflagged lap mid-period
+            out[-1][1] = lap
+        else:
+            out.append([lap, lap])
+    return [tuple(r) for r in out]
+
+
+def periods(msgs):
+    """[(onset_lap, end_lap)] of safety cars and red flags; an onset inside a period merges into it.
+    End = next "SAFETY CAR IN THIS LAP" (else e.g. red flag + standing restart), capped at +10 laps."""
+    # ponytail: the +10 cap guesses period length when no end message exists; parse
+    # "RACE WILL RESUME" / restart messages if lap-level precision after red flags matters.
+    msgs = sorted((m for m in msgs if m.get("lap_number")), key=lambda m: m["date"])
+    text = lambda m: (m.get("message") or "").upper().strip()
+    ends = sorted(m["lap_number"] for m in msgs if text(m) == "SAFETY CAR IN THIS LAP")
+    out = []
+    for m in msgs:
+        lap = m["lap_number"]
+        if text(m) == "SAFETY CAR DEPLOYED" or text(m).startswith("RED FLAG") or m.get("flag") == "RED":
+            if out and lap <= out[-1][1]:
+                continue
+            out.append((lap, min(next((e for e in ends if e >= lap), lap + 10), lap + 10)))
+    return out
 
 
 def race_control(season):
@@ -123,7 +157,8 @@ def race_control(season):
         out[s["date_start"][:10]] = {
             "sc": int("SAFETY CAR DEPLOYED" in text),
             "vsc": int(bool(text & {"VIRTUAL SAFETY CAR DEPLOYED", "VSC DEPLOYED"})),
-            "red": int(any(m.get("flag") == "RED" for m in msgs) or any(t.startswith("RED FLAG") for t in text))}
+            "red": int(any(m.get("flag") == "RED" for m in msgs) or any(t.startswith("RED FLAG") for t in text)),
+            "periods": periods(msgs)}
     return out
 
 
@@ -152,14 +187,20 @@ if __name__ == "__main__":
     for s in sorted(set(races.season)):
         if s >= OPENF1_FROM:
             rc.update(race_control(s))
-    neut = []
+    neut, sc_periods = [], []
     for r in races.itertuples():
         top3 = df[(df.season == r.season) & (df["round"] == r.round)].nsmallest(3, "position").driver
         row = {"season": r.season, "round": r.round, **lookup(rc, r.date)}
+        sc_periods += [(r.season, r.round, "openf1", *p) for p in row.pop("periods", [])]
         if r.season <= OPENF1_FROM:
-            row["slow_laps"] = slow_laps(r, top3)
+            slow = slow_laps(r, top3)
+            row["slow_laps"] = None if slow is None else len(slow)
+            # The deployment lap is still partly green, so the first fully slow lap is one late
+            # (checked against OpenF1 on 2023: inferred = real + 1 in 12 of 17 matches).
+            sc_periods += [(r.season, r.round, "laps", max(a - 1, 1), b) for a, b in runs(slow or [])]
         neut.append(row)
         print(f"{r.season} R{r.round}: {row}", flush=True)
     df = df.merge(pd.DataFrame(neut), on=["season", "round"], how="left")
+    pd.DataFrame(sc_periods, columns=["season", "round", "source", "onset", "end"])         .to_csv("data/sc_periods.csv", index=False)
     df.sort_values(["season", "round", "position"]).to_csv("data/races.csv", index=False)
     print(f"wrote data/races.csv: {len(df)} rows, {len(races)} races")

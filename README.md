@@ -20,6 +20,7 @@ python -m venv .venv
 python fetch.py   # pull data into data/races.csv (first full run ~1h due to API rate limits; cached after)
 python model.py   # finishing-order model vs grid order -> data/predictions.csv
 python risk.py    # DNF + safety car models -> data/dnf_predictions.csv, data/sc_predictions.csv
+python sc_laps.py # lap-level safety car hazard -> data/sc_lap_predictions.csv
 ```
 
 ## Data sources
@@ -37,6 +38,9 @@ Before 2023, safety cars / red flags are inferred from lap times (2+ of the top 
 |---|---|---|
 | Finishing order | Grid order: Spearman 0.634, MAE 3.43 | Spearman 0.666, MAE 3.31 |
 | DNF probability | Average rate: Brier 0.120 | Brier 0.118, AUC 0.59 |
-| SC / red flag | Average rate: Brier 0.248 | Brier 0.245, AUC 0.55 |
+| SC / red flag (per race, pre-race) | Average rate: Brier 0.248 | Brier 0.245, AUC 0.55 |
+| SC / red flag start (per lap, in-race) | Lap 1 vs rest: AUC 0.59 | AUC 0.79, Brier skill +6.9% |
 
 DNFs and safety cars turn out to be mostly unpredictable from pre-race information alone.
+In-race, per lap, they're much more predictable: lap 1 carries ~21% risk vs ~1% for a typical
+lap, and a retirement in the last two laps raises the next lap's risk about 10x.
