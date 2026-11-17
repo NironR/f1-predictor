@@ -3,7 +3,7 @@
 Raw API responses are cached in data/raw/, so re-runs only fetch what's missing.
 Usage: python fetch.py [first_season] [last_season]
 """
-import json, sys, time
+import json, subprocess, sys, time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -15,6 +15,7 @@ RAW.mkdir(parents=True, exist_ok=True)
 JOLPICA = "https://api.jolpi.ca/ergast/f1"
 METEO = "https://archive-api.open-meteo.com/v1/archive"
 OPENF1 = "https://api.openf1.org/v1"
+TYRES = "https://github.com/TracingInsights/{}.git"  # FastF1-style laps incl. tyres, 2018+
 OPENF1_FROM = 2023  # OpenF1 starts 2023; 2023 overlaps to validate lap inference
 
 
@@ -171,6 +172,30 @@ def lookup(rc, date):
     return {}
 
 
+TYRE_COLS = {"lap": "lap", "time": "time", "compound": "compound", "stint": "stint", "life": "tyre_life",
+             "fresh": "fresh_tyre", "pos": "position", "status": "track_status", "pin": "pit_in",
+             "pout": "pit_out", "del": "deleted", "iacc": "accurate", "wTT": "track_temp", "wR": "raining",
+             "team": "team_name"}
+
+
+def tyre_laps(season):
+    """Every race lap for a season with compound, tyre age, pit and track status (one row per lap)."""
+    repo = RAW / f"ti_{season}"
+    if not repo.exists():  # sparse clone: only race laptimes.json, skips the (large) telemetry
+        subprocess.run(["git", "clone", "--quiet", "--depth", "1", "--filter=blob:none", "--sparse",
+                        TYRES.format(season), str(repo)], check=True)
+        subprocess.run(["git", "-C", str(repo), "sparse-checkout", "set", "--no-cone",
+                        "/*/Race/*/laptimes.json"], check=True)
+    frames = []
+    for f in repo.glob("*/Race/*/laptimes.json"):
+        d = pd.DataFrame(json.loads(f.read_text(encoding="utf-8")))
+        if d.empty:
+            continue
+        d = d[[c for c in TYRE_COLS if c in d]].rename(columns=TYRE_COLS)
+        frames.append(d.assign(season=season, race=f.parts[-4], code=f.parts[-2]))
+    return pd.concat(frames, ignore_index=True)
+
+
 if __name__ == "__main__":
     first, last = (int(a) for a in sys.argv[1:3]) if len(sys.argv) > 2 else (2018, datetime.now().year)
     rows = []
@@ -204,3 +229,13 @@ if __name__ == "__main__":
     pd.DataFrame(sc_periods, columns=["season", "round", "source", "onset", "end"])         .to_csv("data/sc_periods.csv", index=False)
     df.sort_values(["season", "round", "position"]).to_csv("data/races.csv", index=False)
     print(f"wrote data/races.csv: {len(df)} rows, {len(races)} races")
+
+    tl = pd.concat([tyre_laps(s) for s in range(first, last + 1)], ignore_index=True)
+    key = races.assign(race=races.race.str.replace(r" in .+$", "", regex=True))  # "Bahrain Grand Prix in Malaysia"
+    tl = tl.merge(key[["season", "round", "race", "circuit"]], on=["season", "race"], how="left")
+    missing = tl[tl["round"].isna()].drop_duplicates(["season", "race"])
+    if len(missing):
+        print("tyre data races with no Jolpica match:", list(zip(missing.season, missing.race)))
+    tl = tl.dropna(subset=["round"]).astype({"round": int})
+    tl.sort_values(["season", "round", "code", "lap"]).to_csv("data/tyre_laps.csv", index=False)
+    print(f"wrote data/tyre_laps.csv: {len(tl)} laps, {tl.groupby(['season', 'round']).ngroups} races")
