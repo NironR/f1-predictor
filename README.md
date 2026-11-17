@@ -22,6 +22,8 @@ python model.py   # finishing-order model vs grid order -> data/predictions.csv
 python risk.py    # DNF + safety car models -> data/dnf_predictions.csv, data/sc_predictions.csv
 python sc_laps.py # lap-level safety car hazard -> data/sc_lap_predictions.csv
 python tyres.py   # tyre degradation per race + pre-race / in-race prediction -> data/tyre_deg.csv, tyre_shape.csv
+python sim.py 2024 11      # strategy report for one race: best 1/2/3-stop plans, Monte Carlo, SC re-planning
+python sim.py backtest     # recommended strategy vs what the top-10 cars did, 2021-2026
 ```
 
 ## Data sources
@@ -60,3 +62,16 @@ races where the whole field pitted together (wet starts) from producing nonsense
 - Pre-race, the track's own history predicts wear best but only ~5% better than the overall average;
   race-to-race variation is ~8x the measurement noise.
 - In-race, the race's own laps pin wear down: error 0.032 s/lap pre-race → 0.026 after 20 laps → 0.019 after 40.
+
+## Strategy simulator (work in progress)
+
+Single-car, time-only. A dynamic programme finds the exact fastest plan (compounds + pit laps, 2+ dry
+compounds); a Monte Carlo tests plans against uncertain wear and random safety cars, including
+re-planning at each SC ("pit now under SC or stay out?").
+
+- Pit loss measured as gap lost vs cars that stayed out: ~22 s green, ~13.5 s under SC (~40% cheaper).
+- Race laps understate wear (drivers nurse tyres on long stints; that lost pace looks like driver pace),
+  so wear is scaled up by a factor calibrated on teams' past choices: ~3x since 2023.
+- Honest result: picks the top-10 cars' stop count 47% of the time vs 54% for "what usually works at this
+  track". Missing piece: track position (a stop can cost places you can't win back), which needs a
+  multi-car simulation.

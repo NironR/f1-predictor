@@ -175,7 +175,7 @@ def lookup(rc, date):
 TYRE_COLS = {"lap": "lap", "time": "time", "compound": "compound", "stint": "stint", "life": "tyre_life",
              "fresh": "fresh_tyre", "pos": "position", "status": "track_status", "pin": "pit_in",
              "pout": "pit_out", "del": "deleted", "iacc": "accurate", "wTT": "track_temp", "wR": "raining",
-             "team": "team_name"}
+             "team": "team_name", "sesT": "session_time"}  # session_time: clock at lap end (s)
 
 
 def tyre_laps(season):

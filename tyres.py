@@ -18,7 +18,7 @@ SOFTEST_FIRST = ["HYPERSOFT", "ULTRASOFT", "SUPERSOFT", "SOFT", "MEDIUM", "HARD"
 MIN_LAPS = 40  # per compound per race, to estimate a slope
 # Weak priors (mean, sd). Only bite when a race can't separate fuel from wear, e.g. a wet start
 # where the whole field switches to slicks on the same lap (Spa 2025, Monaco 2022).
-PRIORS = {"lap": (-0.05, 0.02), "deg_": (0.04, 0.05), "off_": (0.0, 0.5)}
+PRIORS = {"lap": (-0.05, 0.02), "deg_": (0.04, 0.05), "off_": (0.0, 0.5), "stint_": (0.0, 0.5)}
 LAP_NOISE = 0.65  # typical residual sd (s) of a clean lap, scales prior strength vs data
 
 
@@ -57,6 +57,10 @@ def race_fit(g, priors=PRIORS, noise=LAP_NOISE, resid_only=False):
         if c != ref:
             X[f"off_{c}"] = (g.compound == c).astype(float).values
         X[f"deg_{c}"] = ((g.compound == c) * g.tyre_life).values
+    # Drivers manage tyres early and push in the last stint, which is usually on hards; without
+    # this, that push gets credited to the compound. Identified because strategies differ.
+    for n in (2, 3):
+        X[f"stint_{n}"] = (g.stint.clip(upper=3) == n).astype(float).values
     # MAP estimate: append one pseudo-observation per prior, weighted by noise / prior sd.
     prior_rows, prior_y = [], []
     for j, col in enumerate(X.columns):
