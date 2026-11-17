@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 
 from model import TEST_SEASONS, features
-from sim import (PARAM_SD, SC_PIT_FACTOR, actual_strategies, before, load, planner, race_inputs,
-                 sc_timeline, shrunk)
+from sim import (PARAM_SD, SC_PIT_FACTOR, actual_strategies, adaptive, before, load, planner,
+                 race_inputs, sc_timeline, shrunk)
 from tyres import DRY
 
 MIN_GAP = 0.4            # s; closest a car can follow without passing
@@ -62,27 +62,40 @@ def plan_arrays(plan, n_laps):
     return comp, age, pit
 
 
-def simulate(inp, pace, base, plans, threshold, n_sims, rng):
-    """Returns final positions (sims x cars, 0 = winner) and on-track passes per race."""
+def simulate(inp, pace, base, plans, threshold, n_sims, rng, react=None, sc_fixed=None):
+    """Returns final positions (sims x cars, 0 = winner) and on-track passes per race.
+    react=(best, bit) from planner: every car re-plans at each SC (pit now or stay out).
+    sc_fixed: use these SC laps in every simulation (replaying a real race) instead of random ones."""
     n_cars, N = len(pace), inp["n_laps"]
-    comp, age, pit = map(np.array, zip(*(plan_arrays(p, N) for p in plans)))   # cars x laps
+    sc_sets = [sc_fixed if sc_fixed is not None else {l for l in sc_timeline(inp, rng) if l <= N}
+               for _ in range(n_sims)]
+    sc = np.zeros((n_sims, N + 1), bool)
+    for i, laps in enumerate(sc_sets):
+        sc[i, sorted(laps)] = True
+    cache = {}
+
+    def arrays(plan, laps):  # the plan after this simulation's SC reactions, as per-lap arrays
+        key = (tuple(plan), frozenset(laps) if react else None)
+        if key not in cache:
+            cache[key] = np.stack(plan_arrays(adaptive(plan, *react, inp, laps) if react and laps else plan, N))
+        return cache[key]
+
+    arr = np.array([[arrays(p, laps) for p in plans] for laps in sc_sets])     # sims x cars x 3 x laps
+    comp, age, pit = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2].astype(bool)
     off = np.array([inp["params"][("off", c)] for c in DRY])
     deg = np.array([inp["params"][("deg", c)] for c in DRY])
     true_off = off + rng.normal(0, PARAM_SD["off"], (n_sims, 3)) * (np.array(DRY) != "MEDIUM")
     true_deg = deg + rng.normal(0, PARAM_SD["deg"], (n_sims, 3))
     curve = np.array([inp["curve"][c] for c in DRY])                             # 3 x ages
     car_pace = pace + rng.normal(0, 0.1, (n_sims, n_cars))
-    sc = np.zeros((n_sims, N + 1), bool)
-    for s in range(n_sims):
-        sc[s, [l for l in sc_timeline(inp, rng) if l <= N]] = True
     T = np.tile(np.arange(n_cars) * 0.3, (n_sims, 1))                           # grid gaps
     rows = np.arange(n_sims)
     passes = np.zeros(n_sims)
     for lap in range(1, N + 1):
-        c, a = comp[:, lap], age[:, lap]
-        lt = (base + car_pace + true_off[:, c] + true_deg[:, c] * a + curve[c, a]
-              + rng.normal(0, LAP_NOISE, (n_sims, n_cars)))
-        pitting = np.broadcast_to(pit[:, lap], (n_sims, n_cars))
+        c, a = comp[:, :, lap], age[:, :, lap]                                   # sims x cars
+        lt = (base + car_pace + np.take_along_axis(true_off, c, 1) + np.take_along_axis(true_deg, c, 1) * a
+              + curve[c, a] + rng.normal(0, LAP_NOISE, (n_sims, n_cars)))
+        pitting = pit[:, :, lap]
         loss = np.where(sc[:, lap], SC_PIT_FACTOR, 1.0)[:, None] * inp["pit"]
         prov = T + lt + pitting * loss
         if lap > 1 and sc[:, lap].any():  # bunch the field behind the SC, order kept
@@ -108,9 +121,9 @@ def simulate(inp, pace, base, plans, threshold, n_sims, rng):
     return T.argsort(1).argsort(1), passes
 
 
-def calibrate(inp, pace, base, plans, target, rng, n_sims=30):
+def calibrate(inp, pace, base, plans, target, rng, react, n_sims=30):
     """Pass difficulty whose simulated overtakes per race best match the real count."""
-    got = {th: simulate(inp, pace, base, plans, th, n_sims, rng)[1].mean() for th in THRESHOLDS}
+    got = {th: simulate(inp, pace, base, plans, th, n_sims, rng, react)[1].mean() for th in THRESHOLDS}
     return min(got, key=lambda th: abs(got[th] - target)), got
 
 
@@ -127,27 +140,39 @@ def jittered(plan, n_laps, rng, spread=3):
     return out
 
 
+def real_sc_laps(data, season, rnd):
+    """Laps under SC / red flag in the real race (OpenF1 from 2023, lap-time inference before)."""
+    p = data["periods"].query("season == @season and round == @rnd")
+    p = p[p.source == ("openf1" if season >= 2023 else "laps")]
+    return {l for o, e in zip(p.onset, p.end) for l in range(o, e + 1)}
+
+
 def decide(season, rnd, data, wear_scale, n_sims=150, seed=0, verbose=False):
     """Expected finishing position of a front-runner and a midfield car on the best 1-stop vs best
-    2-stop plan, with the rest of the field on the time-optimal plan."""
+    2-stop plan, rest of the field on the time-optimal plan; every car re-plans at each SC.
+    Also replays the chosen plan through the real race's safety cars: the stops it would really make."""
     rng = np.random.default_rng(seed)
     inp = race_inputs(season, rnd, data, wear_scale)
     pace, base = field(season, rnd, data)
-    best, _ = planner(inp["n_laps"], inp["params"], inp["curve"], inp["pit"])
+    best, bit = planner(inp["n_laps"], inp["params"], inp["curve"], inp["pit"])
+    react = (best, bit)
     default = best(1, 3, 0)[1]
     cands = {k: best(1, k, 0, exact=True)[1] for k in (1, 2)}
     rivals = [jittered(default, inp["n_laps"], rng) for _ in pace]
     ot = before(data["overtakes"], season, rnd)
     target = shrunk(ot[ot.circuit == inp["circuit"]].overtakes, ot.overtakes.median(), 2)
-    th, _ = calibrate(inp, pace, base, rivals, target, rng)
+    th, _ = calibrate(inp, pace, base, rivals, target, rng, react)
     pos = {}
     for k, plan in cands.items():
         for slot in REP_SLOTS:
             plans = list(rivals)
             plans[slot - 1] = plan
-            pos[(k, slot)] = simulate(inp, pace, base, plans, th, n_sims, rng)[0][:, slot - 1].mean() + 1
+            pos[(k, slot)] = simulate(inp, pace, base, plans, th, n_sims, rng, react)[0][:, slot - 1].mean() + 1
     score = {k: np.mean([pos[(k, s)] for s in REP_SLOTS]) for k in cands}
     choice = min(score, key=score.get)
+    real = real_sc_laps(data, season, rnd)
+    replay = {"multi": len(adaptive(cands[choice], best, bit, inp, real)) - 1,
+              "timeonly": len(adaptive(default, best, bit, inp, real)) - 1}
     if verbose:
         print(f"{inp['circuit']}: {inp['n_laps']} laps, pass difficulty {th}s "
               f"(target {target:.0f} overtakes/race), pit loss {inp['pit']:.1f}s, wear x{wear_scale}")
@@ -155,11 +180,12 @@ def decide(season, rnd, data, wear_scale, n_sims=150, seed=0, verbose=False):
             stints = " > ".join(f"{c[0]}{l - f + 1}" for c, f, l in plan)
             print(f"  {k}-stop {stints:22s} expected finish: "
                   + ", ".join(f"from P{s} -> {pos[(k, s)]:.1f}" for s in REP_SLOTS))
-        print(f"  choose {choice}-stop")
-    return choice, default
+        print(f"  choose {choice}-stop; through the real race's SCs (laps {sorted(real) or 'none'}) "
+              f"it would make {replay['multi']} stops")
+    return choice, default, replay
 
 
-def backtest(data, scales=(1, 2, 3)):
+def backtest(data, scales=(2, 3)):
     """Walk-forward like sim.backtest: the wear scale for each test season is the one whose
     choices best matched the top-10 cars in earlier seasons."""
     t, rows = data["tyre_laps"], []
@@ -177,8 +203,10 @@ def backtest(data, scales=(1, 2, 3)):
         row = {"season": s, "round": r, "circuit": g.circuit.iat[0], "actual": int(stops.mode().iat[0]),
                "hist_stops": int(hs.mode().iat[0]) if len(hs) else 1}
         for w in scales:
-            row[f"choice_{w}"], default = decide(s, r, data, w)
+            row[f"choice_{w}"], default, replay = decide(s, r, data, w)
             row[f"timeonly_{w}"] = min(len(default) - 1, 2)
+            row[f"replay_{w}"] = min(replay["multi"], 2)
+            row[f"replay_timeonly_{w}"] = min(replay["timeonly"], 2)
         rows.append(row)
         print(f"{s} R{r} {row['circuit']}: actual {row['actual']}, "
               + " ".join(f"x{w}->{row[f'choice_{w}']}" for w in scales), flush=True)
@@ -187,14 +215,16 @@ def backtest(data, scales=(1, 2, 3)):
     for s in TEST_SEASONS:
         past = b[b.season < s]
         w = max(scales, key=lambda w: (past[f"choice_{w}"] == past.actual.clip(upper=2)).sum())
-        picked.append(b[b.season == s].assign(wear_scale=w, choice=b[f"choice_{w}"],
-                                              timeonly=b[f"timeonly_{w}"]))
+        picked.append(b[b.season == s].assign(wear_scale=w, choice=b[f"choice_{w}"], timeonly=b[f"timeonly_{w}"],
+                                              replay=b[f"replay_{w}"], replay_timeonly=b[f"replay_timeonly_{w}"]))
     p = pd.concat(picked)
     p.to_csv("data/race_sim_backtest.csv", index=False)
     actual = p.actual.clip(upper=2)  # we choose between 1 and 2 stops; 3+ counts as "2+"
     print(f"\n{len(p)} dry races 2021-2026, stop count (1 vs 2+) matching the top-10 cars' most common:")
     print(f"  multi-car sim {np.mean(p.choice == actual):.0%}   time-only sim {np.mean(p.timeonly == actual):.0%}   "
           f"track history {np.mean(p.hist_stops.clip(upper=2) == actual):.0%}   always 1-stop {np.mean(actual == 1):.0%}")
+    print(f"  replayed through each race's real safety cars: multi-car {np.mean(p.replay == actual):.0%}   "
+          f"time-only {np.mean(p.replay_timeonly == actual):.0%}")
     print("  wear scale used per season:", p.groupby("season").wear_scale.first().to_dict())
 
 

@@ -88,10 +88,14 @@ plan with the better expected finishing position.
 
 Stop count (1 vs 2+) matching the top-10 cars, 115 dry races 2021-2026:
 
-| Multi-car sim | Time-only sim | Track history | Always 1-stop |
-|---|---|---|---|
-| 63% | 63% | 65% | 45% |
+Every car also re-plans at each safety car (pit now cheaply, or stay out), and each chosen plan is
+replayed through the real race's safety cars to count the stops it would really have made.
 
-It roughly ties track history overall, but beats it right after the 2022 rule change (72% vs 67%,
-85% vs 50% in 2023) when history from the old cars was stale, and loses in stable eras. Not yet modelled:
-reacting to safety cars mid-race, team-specific pace, and rivals choosing strategies in response.
+| Multi-car sim | ...replayed through real SCs | Time-only sim | Track history | Always 1-stop |
+|---|---|---|---|---|
+| 62% | 62% | 61% | 65% | 45% |
+
+It roughly ties track history overall: better in 2023 (70% vs 50%) when history from the pre-2022 cars was
+stale, worse in stable eras. SC reactions mostly move a planned stop to the cheap SC lap rather than add
+one, so they barely change stop counts. Not yet modelled: team-specific tyre wear and pace, and rivals
+choosing strategies in response to each other.
