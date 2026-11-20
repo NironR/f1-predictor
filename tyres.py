@@ -18,7 +18,14 @@ SOFTEST_FIRST = ["HYPERSOFT", "ULTRASOFT", "SUPERSOFT", "SOFT", "MEDIUM", "HARD"
 MIN_LAPS = 40  # per compound per race, to estimate a slope
 # Weak priors (mean, sd). Only bite when a race can't separate fuel from wear, e.g. a wet start
 # where the whole field switches to slicks on the same lap (Spa 2025, Monaco 2022).
-PRIORS = {"lap": (-0.05, 0.02), "deg_": (0.04, 0.05), "off_": (0.0, 0.5), "stint_": (0.0, 0.5)}
+PRIORS = {"lap": (-0.05, 0.02), "deg_": (0.04, 0.05), "off_": (0.0, 0.5), "stint_": (0.0, 0.5),
+          "tw_": (0.0, 0.03)}
+# Same team across renames, so its tyre-wear history carries over.
+TEAM_LINEAGE = {"Toro Rosso": "racing_bulls", "AlphaTauri": "racing_bulls", "RB": "racing_bulls",
+                "Racing Bulls": "racing_bulls", "Sauber": "sauber", "Alfa Romeo Racing": "sauber",
+                "Alfa Romeo": "sauber", "Kick Sauber": "sauber", "Audi": "sauber", "Force India": "aston_martin",
+                "Racing Point": "aston_martin", "Aston Martin": "aston_martin", "Renault": "alpine",
+                "Alpine": "alpine", "Haas F1 Team": "haas", "Red Bull Racing": "red_bull"}
 LAP_NOISE = 0.65  # typical residual sd (s) of a clean lap, scales prior strength vs data
 
 
@@ -41,6 +48,7 @@ def clean(t):
           & (t.deleted != True) & (t.accurate == True) & (t.raining != True)
           & t.compound.isin(DRY) & t.tyre_life.notna() & t.time.notna())
     t = t[ok].copy()
+    t["team"] = t.team_name.map(lambda n: TEAM_LINEAGE.get(n, str(n).lower().replace(" ", "_")))
     t = t[t.time < 1.07 * t.groupby(["season", "round", "code"]).time.transform("median")]
     n = t.groupby(["season", "round", "compound"]).time.transform("size")
     return t[n >= MIN_LAPS]
@@ -61,6 +69,9 @@ def race_fit(g, priors=PRIORS, noise=LAP_NOISE, resid_only=False):
     # this, that push gets credited to the compound. Identified because strategies differ.
     for n in (2, 3):
         X[f"stint_{n}"] = (g.stint.clip(upper=3) == n).astype(float).values
+    teams = sorted(g.team.unique())
+    for tm in teams:  # team's extra wear vs the field, s per lap of tyre age (all compounds)
+        X[f"tw_{tm}"] = ((g.team == tm) * g.tyre_life).values
     # MAP estimate: append one pseudo-observation per prior, weighted by noise / prior sd.
     prior_rows, prior_y = [], []
     for j, col in enumerate(X.columns):
@@ -78,8 +89,14 @@ def race_fit(g, priors=PRIORS, noise=LAP_NOISE, resid_only=False):
     b, b_se = dict(zip(X.columns, beta)), dict(zip(X.columns, se))
     out = {"fuel_per_lap": b["lap"], "laps": len(g), "track_temp": g.track_temp.mean(),
            "resid_sd": resid.std()}
+    # Centre team wear on the (lap-weighted) field average and fold that average into the compounds.
+    share = g.team.value_counts(normalize=True)
+    field = sum(b[f"tw_{tm}"] * share[tm] for tm in teams)
+    for tm in teams:
+        out[f"tw_{tm}"] = b[f"tw_{tm}"] - field
+        out[f"tw_{tm}_se"] = b_se[f"tw_{tm}"]
     for c in DRY:
-        out[f"deg_{c}"] = b.get(f"deg_{c}", np.nan)
+        out[f"deg_{c}"] = b.get(f"deg_{c}", np.nan) + field
         out[f"deg_{c}_se"] = b_se.get(f"deg_{c}", np.nan)
         out[f"n_{c}"] = int((g.compound == c).sum())
         vs_medium = ref == "MEDIUM"  # offsets only comparable across races when MEDIUM is the reference
@@ -89,8 +106,8 @@ def race_fit(g, priors=PRIORS, noise=LAP_NOISE, resid_only=False):
 
 
 def measure(t):
-    return (t.groupby(["season", "round", "circuit"]).apply(race_fit, include_groups=False)
-            .reset_index())
+    return pd.DataFrame([{"season": s, "round": r, "circuit": c, **race_fit(g)}
+                         for (s, r, c), g in t.groupby(["season", "round", "circuit"])])
 
 
 AGE_BINS = [0, 3, 6, 10, 15, 20, 25, 30, 35, 40, 50, 80]
@@ -186,6 +203,36 @@ def in_race_report(laps, deg):
     print(e[e.seen].groupby(["after_lap", "compound"]).err.mean().unstack().round(4).to_string())
 
 
+def team_wear(deg, half_life=6, past_season_weight=0.3, m=2):
+    """Each team's wear deviation per race (measured) next to a forecast from its earlier races only:
+    recency-weighted (half-life in races), earlier seasons down-weighted (cars change), shrunk to 0."""
+    cols = [c for c in deg if c.startswith("tw_") and not c.endswith("_se")]
+    long = (deg.melt(id_vars=["season", "round", "circuit"], value_vars=cols, var_name="team", value_name="tw")
+            .dropna().assign(team=lambda d: d.team.str[3:]).sort_values(["season", "round"]))
+    long["idx"] = long.groupby(["season", "round"]).ngroup()
+    out = []
+    for tm, g in long.groupby("team"):
+        for i, row in enumerate(g.itertuples()):
+            past = g.iloc[:i]
+            w = 0.5 ** ((row.idx - past.idx) / half_life) * np.where(past.season == row.season, 1, past_season_weight)
+            out.append({"season": row.season, "round": row.round, "team": tm, "tw": row.tw,
+                        "pred": float((w * past.tw).sum() / (w.sum() + m)) if len(past) else 0.0})
+    return pd.DataFrame(out)
+
+
+def team_wear_report(deg):
+    tw = team_wear(deg)
+    tw.to_csv("data/team_wear.csv", index=False)
+    test = tw[tw.season.isin(TEST_SEASONS)]
+    print("\nTeam tyre wear vs field (s per lap of tyre age), walk-forward 2021-2026:")
+    print(f"  spread of measured team wear: sd {test.tw.std():.4f}; forecast vs measured correlation "
+          f"{test[['tw', 'pred']].corr().iat[0, 1]:.2f}")
+    print(f"  MAE predicting 'same as field' {test.tw.abs().mean():.4f} -> with team history "
+          f"{(test.tw - test.pred).abs().mean():.4f}")
+    last = tw[tw.season == tw.season.max()].groupby("team").tw.mean().sort_values()
+    print("  this season, kindest to tyres first:", ", ".join(f"{t} {v:+.3f}" for t, v in last.items()))
+
+
 if __name__ == "__main__":
     pd.set_option("display.width", 200)
     laps = clean(pd.read_csv("data/tyre_laps.csv", low_memory=False))
@@ -199,6 +246,7 @@ if __name__ == "__main__":
         print(f"  {c:13s} {q[0.5]:+.3f}  [{q[0.1]:+.3f}, {q[0.9]:+.3f}]   ({deg[c].notna().sum()} races)")
     prediction_report(deg)
     in_race_report(laps, deg)
+    team_wear_report(deg)
     shape = wear_shape(laps)
     shape.to_csv("data/tyre_shape.csv", index=False)
     print("\nNon-linear wear on top of the linear slope (s per lap; + = slower; blank = <100 laps):")

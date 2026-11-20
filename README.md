@@ -64,6 +64,11 @@ races where the whole field pitted together (wet starts) from producing nonsense
 - Pre-race, the track's own history predicts wear best but only ~5% better than the overall average;
   race-to-race variation is ~8x the measurement noise.
 - In-race, the race's own laps pin wear down: error 0.032 s/lap pre-race → 0.026 after 20 laps → 0.019 after 40.
+- Team-specific wear is real: after removing measurement noise, teams differ by ~±0.016 s per lap of tyre
+  age (~7 s over a 30-lap stint), and it holds within a season (first vs second half correlation 0.42).
+  But it doesn't carry from one race to the next (forecast correlation 0.19): how kind a car is to its
+  tyres depends heavily on whether the track suits it. Pre-race it adds little; in-race it can be
+  measured from the laps run so far.
 
 ## Strategy simulator (work in progress)
 
