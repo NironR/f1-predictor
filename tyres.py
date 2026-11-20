@@ -54,7 +54,7 @@ def clean(t):
     return t[n >= MIN_LAPS]
 
 
-def race_fit(g, priors=PRIORS, noise=LAP_NOISE, resid_only=False):
+def race_fit(g, priors=PRIORS, noise=LAP_NOISE, resid_only=False, with_pace=False):
     """One race's OLS. Returns fuel effect, compound offsets vs MEDIUM, and deg slopes (s per lap of age),
     or with resid_only, each lap's residual (actual - fitted)."""
     used = [c for c in DRY if (g.compound == c).any()]
@@ -102,6 +102,10 @@ def race_fit(g, priors=PRIORS, noise=LAP_NOISE, resid_only=False):
         vs_medium = ref == "MEDIUM"  # offsets only comparable across races when MEDIUM is the reference
         out[f"off_{c}"] = (0.0 if c == ref else b.get(f"off_{c}", np.nan)) if vs_medium else np.nan
         out[f"off_{c}_se"] = b_se.get(f"off_{c}", np.nan) if vs_medium else np.nan
+    if with_pace:  # each driver's pace vs the fastest, s/lap (tyre, fuel and stint effects removed)
+        drivers = g.code.unique()
+        fastest = min(b[d] for d in drivers)
+        out.update({f"pace_{d}": b[d] - fastest for d in drivers})
     return pd.Series(out)
 
 

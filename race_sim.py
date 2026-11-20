@@ -54,18 +54,24 @@ def field(season, rnd, data):
 
 
 def plan_arrays(plan, n_laps):
+    """Per-lap compound, tyre age and pit flag. A stint's `first` can be < 1 for a set that already
+    had laps on it (used tyres): age counts from `first`."""
     comp, age, pit = np.zeros(n_laps + 1, int), np.zeros(n_laps + 1, int), np.zeros(n_laps + 1, bool)
     for c, first, last in plan:
-        comp[first:last + 1] = DRY.index(c)
-        age[first:last + 1] = np.arange(1, last - first + 2)
+        lo = max(first, 0)
+        comp[lo:last + 1] = DRY.index(c)
+        age[lo:last + 1] = np.arange(lo, last + 1) - first + 1
         pit[last] = last < n_laps
     return comp, age, pit
 
 
-def simulate(inp, pace, base, plans, threshold, n_sims, rng, react=None, sc_fixed=None):
+def simulate(inp, pace, base, plans, threshold, n_sims, rng, react=None, sc_fixed=None, start_lap=0,
+             T0=None, car_deg=None):
     """Returns final positions (sims x cars, 0 = winner) and on-track passes per race.
-    react=(best, bit) from planner: every car re-plans at each SC (pit now or stay out).
-    sc_fixed: use these SC laps in every simulation (replaying a real race) instead of random ones."""
+    react=(best, bit) from planner, or a list of them (one per car): every car re-plans at each SC.
+    sc_fixed: use these SC laps in every simulation (replaying a real race) instead of random ones.
+    start_lap/T0: resume after `start_lap` with cumulative times T0 (cars in plans/pace order).
+    car_deg: per-car extra wear (s per lap of tyre age), e.g. team wear measured in this race."""
     n_cars, N = len(pace), inp["n_laps"]
     sc_sets = [sc_fixed if sc_fixed is not None else {l for l in sc_timeline(inp, rng) if l <= N}
                for _ in range(n_sims)]
@@ -74,13 +80,17 @@ def simulate(inp, pace, base, plans, threshold, n_sims, rng, react=None, sc_fixe
         sc[i, sorted(laps)] = True
     cache = {}
 
-    def arrays(plan, laps):  # the plan after this simulation's SC reactions, as per-lap arrays
-        key = (tuple(plan), frozenset(laps) if react else None)
+    reacts = react if isinstance(react, list) else [react] * n_cars
+    future = lambda laps: {l for l in laps if l > start_lap}
+
+    def arrays(i, plan, laps):  # the plan after this simulation's SC reactions, as per-lap arrays
+        r = reacts[i]
+        key = (id(r), tuple(plan), frozenset(future(laps)) if r else None)
         if key not in cache:
-            cache[key] = np.stack(plan_arrays(adaptive(plan, *react, inp, laps) if react and laps else plan, N))
+            cache[key] = np.stack(plan_arrays(adaptive(plan, *r, inp, future(laps)) if r and future(laps) else plan, N))
         return cache[key]
 
-    arr = np.array([[arrays(p, laps) for p in plans] for laps in sc_sets])     # sims x cars x 3 x laps
+    arr = np.array([[arrays(i, p, laps) for i, p in enumerate(plans)] for laps in sc_sets])  # sims x cars x 3 x laps
     comp, age, pit = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2].astype(bool)
     off = np.array([inp["params"][("off", c)] for c in DRY])
     deg = np.array([inp["params"][("deg", c)] for c in DRY])
@@ -88,13 +98,14 @@ def simulate(inp, pace, base, plans, threshold, n_sims, rng, react=None, sc_fixe
     true_deg = deg + rng.normal(0, PARAM_SD["deg"], (n_sims, 3))
     curve = np.array([inp["curve"][c] for c in DRY])                             # 3 x ages
     car_pace = pace + rng.normal(0, 0.1, (n_sims, n_cars))
-    T = np.tile(np.arange(n_cars) * 0.3, (n_sims, 1))                           # grid gaps
+    car_deg = np.zeros(n_cars) if car_deg is None else np.asarray(car_deg)
+    T = np.tile(np.arange(n_cars) * 0.3 if T0 is None else np.asarray(T0, float), (n_sims, 1))  # grid gaps
     rows = np.arange(n_sims)
     passes = np.zeros(n_sims)
-    for lap in range(1, N + 1):
+    for lap in range(start_lap + 1, N + 1):
         c, a = comp[:, :, lap], age[:, :, lap]                                   # sims x cars
         lt = (base + car_pace + np.take_along_axis(true_off, c, 1) + np.take_along_axis(true_deg, c, 1) * a
-              + curve[c, a] + rng.normal(0, LAP_NOISE, (n_sims, n_cars)))
+              + car_deg * a + curve[c, a] + rng.normal(0, LAP_NOISE, (n_sims, n_cars)))
         pitting = pit[:, :, lap]
         loss = np.where(sc[:, lap], SC_PIT_FACTOR, 1.0)[:, None] * inp["pit"]
         prov = T + lt + pitting * loss

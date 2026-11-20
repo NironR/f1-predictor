@@ -26,6 +26,8 @@ python sim.py 2024 11      # strategy report for one race: best 1/2/3-stop plans
 python sim.py backtest     # recommended strategy vs what the top-10 cars did, 2021-2026
 python race_sim.py 2024 11 # multi-car: 1-stop vs 2-stop by expected finishing position
 python race_sim.py backtest  # ~40 min
+python assist.py 2024 6 NOR 20      # live strategy assistant: Miami 2024, Norris, after lap 20
+python assist.py 2024 6 NOR replay  # its call every 5 laps vs what Norris actually did
 ```
 
 ## Data sources
@@ -104,3 +106,18 @@ It roughly ties track history overall: better in 2023 (70% vs 50%) when history 
 stale, worse in stable eras. SC reactions mostly move a planned stop to the cheap SC lap rather than add
 one, so they barely change stop counts. Not yet modelled: team-specific tyre wear and pace, and rivals
 choosing strategies in response to each other.
+
+## Live strategy assistant
+
+Replays a real race as if live, from a chosen lap, for a chosen driver:
+1. Race state from the timing data: order, gaps, compound, tyre age and stints for every car.
+2. Tyre wear re-estimated from this race's laps so far (field per compound, each team, each driver's
+   pace), with the pre-race estimates as the prior.
+3. Pit window: expected finishing position for each lap of the next stop, from the multi-car simulation
+   started from the real gaps (rivals re-plan with their own team's wear; random safety cars).
+4. "If a safety car came out now": pit or stay out.
+
+Miami 2024, Norris: after lap 27, leading on 27-lap-old mediums with no stop yet, it says a safety car
+now means pit (P2.0 vs P7.0 staying out). The safety car came on lap 28, he pitted and won. Verstappen,
+already stopped, gets "stay out", which is what he did. Known limitation: the 3x wear scale probably
+overstates the fresh-tyre advantage late in a race, so late-SC "free stop" calls lean towards pitting.
