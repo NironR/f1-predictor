@@ -10,6 +10,7 @@ Replays a real race as if live, using only laps up to `lap`:
 
 Usage:  python assist.py 2024 6 NOR 20       # Miami 2024, Norris, after lap 20
         python assist.py 2024 6 NOR replay   # its call every 5 laps vs what Norris did
+        python assist.py check               # vs what teams did, all dry races 2023-2026 (~1h)
 """
 import sys
 
@@ -18,7 +19,7 @@ import pandas as pd
 
 from race_sim import THRESHOLDS, calibrate, field, jittered, simulate
 from sim import MIN_STINT, before, load, planner, race_inputs, shrunk
-from tyres import DRY, LAP_NOISE, PRIORS, clean, race_fit
+from tyres import DRY, LAP_NOISE, PRIORS, TEAM_LINEAGE, clean, race_fit
 
 WEAR_SCALE = 3  # wear multiplier the walk-forward backtests chose for 2024-2026
 TRUST = 4       # how much less than face value to trust this race's laps (tuned in tyres.in_race_report)
@@ -32,7 +33,8 @@ def race_state(t, lap):
     cars = []
     for r in now.itertuples():
         d = t[(t.code == r.code) & (t.lap <= lap)].sort_values("lap")
-        stints = [(s.compound.iat[0], int(s.lap.min()), int(s.lap.max())) for _, s in d.groupby("stint")]
+        stint_no = d.stint.ffill().bfill().fillna(1)  # a few laps have no stint number in the data
+        stints = [(s.compound.iat[0], int(s.lap.min()), int(s.lap.max())) for _, s in d.groupby(stint_no)]
         c, first, _ = stints[-1]
         age = int(r.tyre_life) if pd.notna(r.tyre_life) else lap - first + 1
         stints[-1] = (c, lap - age + 1, lap)  # current set: count age from when it was new
@@ -54,18 +56,21 @@ def live_params(t, lap, inp):
     return deg, team, pace, laps
 
 
-def assist(season, rnd, code, lap, data, verbose=True):
+_pass_difficulty = {}  # per race: calibration only uses pre-race information, so reuse it
+
+
+def assist(season, rnd, code, lap, data, verbose=True, window=True):
+    """window=False skips the pit window (only the safety car call), for the replay check."""
     t = data["tyre_laps"].query("season == @season and round == @rnd")
     inp = race_inputs(season, rnd, data, WEAR_SCALE)
     N = inp["n_laps"]
     cars = race_state(t, lap)
-    if any(c["compound"] not in DRY for c in cars):
-        raise SystemExit("Wet tyres in use: the tyre model only covers dry compounds.")
+    if any(s[0] not in DRY for c in cars for s in c["stints"]):
+        raise SystemExit("Wet tyres used in this race so far: the tyre model only covers dry compounds.")
     me = next((i for i, c in enumerate(cars) if c["code"] == code), None)
     if me is None:
         raise SystemExit(f"{code} isn't running at lap {lap}.")
     deg, team_wear, pace_now, laps = live_params(t, lap, inp)
-    from tyres import TEAM_LINEAGE
     lineage = lambda name: TEAM_LINEAGE.get(name, str(name).lower().replace(" ", "_"))
     inp = {**inp, "params": {**inp["params"], **{("deg", c): v for c, v in deg.items()}}}
 
@@ -98,13 +103,16 @@ def assist(season, rnd, code, lap, data, verbose=True):
     T0 = np.array([c["gap"] for c in cars])
 
     # pass difficulty: calibrated pre-race exactly as race_sim.decide does
-    rng = np.random.default_rng(0)
-    q1_pace, q1_base = field(season, rnd, data)
-    best0, _ = planner(N, inp["params"], inp["curve"], inp["pit"])
-    ot = before(data["overtakes"], season, rnd)
-    target = shrunk(ot[ot.circuit == inp["circuit"]].overtakes, ot.overtakes.median(), 2)
-    th, _ = calibrate(inp, q1_pace, q1_base, [jittered(best0(1, 3, 0)[1], N, rng) for _ in q1_pace],
-                      target, rng, None)
+    if (season, rnd) not in _pass_difficulty:
+        rng = np.random.default_rng(0)
+        pre = race_inputs(season, rnd, data, WEAR_SCALE)
+        q1_pace, q1_base = field(season, rnd, data)
+        best0, _ = planner(N, pre["params"], pre["curve"], pre["pit"])
+        ot = before(data["overtakes"], season, rnd)
+        target = shrunk(ot[ot.circuit == pre["circuit"]].overtakes, ot.overtakes.median(), 2)
+        _pass_difficulty[(season, rnd)] = calibrate(pre, q1_pace, q1_base, [jittered(best0(1, 3, 0)[1], N, rng)
+                                                                           for _ in q1_pace], target, rng, None)[0]
+    th = _pass_difficulty[(season, rnd)]
 
     def expected(plan, sc_fixed=None, react_me=True):
         """react_me=False: my car sticks to `plan` even under SC (when that choice is what's tested)."""
@@ -122,15 +130,17 @@ def assist(season, rnd, code, lap, data, verbose=True):
     done = len(mine["stints"]) - 1
     c, first, _ = mine["stints"][-1]
     cands = {}
-    if bin(mask).count("1") >= 2:
+    if not window:
+        pass
+    elif bin(mask).count("1") >= 2:
         cands["no more stops"] = mine["stints"][:-1] + [(c, first, N)]
-    if done < MAX_STOPS:
+    if window and done < MAX_STOPS:
         for m in range(lap + 1, N - MIN_STINT + 1, 2):
             rest = best_me(m + 1, MAX_STOPS - done - 1, mask)[1]
             if rest:
                 cands[f"pit lap {m}"] = mine["stints"][:-1] + [(c, first, m)] + rest
     results = {name: expected(p) for name, p in cands.items()}
-    best_name = min(results, key=lambda k: results[k][0])
+    best_name = min(results, key=lambda k: results[k][0]) if results else None
 
     sc_now = set(range(lap + 1, lap + 5))
     pit_now = mine["stints"][:-1] + [(c, first, lap + 1)] + best_me(lap + 2, MAX_STOPS - done - 1, mask)[1] \
@@ -162,9 +172,85 @@ def assist(season, rnd, code, lap, data, verbose=True):
     return results, best_name, sc, actual
 
 
+def replay_check(data, seasons=(2023, 2024, 2025, 2026), lead=8, near=3, tol=0.25):
+    """The assistant against what teams actually did, in dry races with exact OpenF1 safety car laps.
+    Pit window: `lead` laps before each top-6 finisher's first green-flag stop, is the best lap within
+    `near` laps of the real stop, and is the real stop in the window (laps within `tol` positions of best)?
+    Safety cars: the lap before each real SC, every top-10 car's pit/stay call vs what its team did."""
+    from sim import actual_strategies
+    t_all, periods = data["tyre_laps"], data["periods"].query("source == 'openf1'")
+    win, scs = [], []
+    for (s, r), t in t_all[t_all.season.isin(seasons)].groupby(["season", "round"]):
+        if t.compound.isin(["INTERMEDIATE", "WET"]).any() or data["deg"].query(
+                "season == @s and round == @r").empty:
+            continue
+        N = int(t.lap.max())
+        stops, _ = actual_strategies(t, N)
+        top = list(stops.index)  # top-10 finishers on the lead lap, in finishing order
+        p = periods.query("season == @s and round == @r")
+        sc_laps = {l for o, e in zip(p.onset, p.end) for l in range(o, e + 1)}
+        pre = race_inputs(s, r, data, WEAR_SCALE)
+        pre_plan = planner(N, pre["params"], pre["curve"], pre["pit"])[0](1, 3, 0)[1]
+        fin = t[t.lap == N].set_index("code").position
+        for code in sorted(top, key=lambda c: fin.get(c, 99))[:6]:
+            first = t[(t.code == code) & t.pit_in.notna()].lap.min()
+            if pd.isna(first) or first in sc_laps or first - lead < 3:
+                continue  # SC stops are tested below
+            try:
+                res, best, _, _ = assist(s, r, code, int(first - lead), data, verbose=False)
+            except SystemExit:
+                continue
+            pit = {int(k.split()[-1]): v[0] for k, v in res.items() if k.startswith("pit lap")}
+            if not pit or best is None or not best.startswith("pit lap"):
+                continue
+            lo = min(pit.values())
+            window_laps = [m for m, v in pit.items() if v <= lo + tol]
+            best_lap = int(best.split()[-1])
+            win.append({"season": s, "round": r, "code": code, "actual": first, "best": best_lap,
+                        "in_window": min(window_laps) - 1 <= first <= max(window_laps) + 1,
+                        "width": max(window_laps) - min(window_laps) + 2, "pre_race": pre_plan[0][2]})
+        for onset, end in zip(p.onset, p.end):
+            if onset < 3 or onset > N - 3:
+                continue
+            for code in top:
+                try:
+                    _, _, sc, _ = assist(s, r, code, int(onset - 1), data, verbose=False, window=False)
+                except SystemExit:
+                    continue
+                if not sc["pit under SC"]:
+                    continue
+                d = t[(t.code == code) & (t.lap == onset - 1)]
+                pitted = t[(t.code == code) & t.pit_in.notna()].lap.between(onset, min(end, onset + 2)).any()
+                stops_done = int(d.stint.iat[0]) - 1 if len(d) else 0
+                scs.append({"season": s, "round": r, "onset": onset, "code": code, "pitted": pitted,
+                            "call_pit": sc["pit under SC"][0] < sc["stay out"][0],
+                            "margin": sc["stay out"][0] - sc["pit under SC"][0],
+                            "tyre_age": int(d.tyre_life.iat[0]) if len(d) and pd.notna(d.tyre_life.iat[0]) else 0,
+                            "stops_done": stops_done})
+        print(f"{s} R{r}: {len(win)} pit-window checks, {len(scs)} SC calls so far", flush=True)
+    w, c = pd.DataFrame(win), pd.DataFrame(scs)
+    w.to_csv("data/assist_window_check.csv", index=False)
+    c.to_csv("data/assist_sc_check.csv", index=False)
+    print()
+    print(f"Pit window, {len(w)} first stops (asked {lead} laps before):")
+    print(f"  best lap within {near} laps of the real stop: assistant {np.mean((w.best - w.actual).abs() <= near):.0%}, "
+          f"pre-race plan {np.mean((w.pre_race - w.actual).abs() <= near):.0%}")
+    print(f"  median error: assistant {(w.best - w.actual).abs().median():.0f} laps, "
+          f"pre-race plan {(w.pre_race - w.actual).abs().median():.0f} laps")
+    print(f"  real stop inside the window: {w.in_window.mean():.0%} (median window {w.width.median():.0f} laps wide)")
+    rule = (c.stops_done == 0) | (c.tyre_age >= 15)  # rule of thumb: pit if no stop yet or tyres 15+ laps old
+    print(f"Safety car calls, {len(c)} car-SCs ({c.pitted.mean():.0%} actually pitted):")
+    print(f"  assistant {np.mean(c.call_pit == c.pitted):.0%}   always pit {c.pitted.mean():.0%}   "
+          f"never pit {1 - c.pitted.mean():.0%}   rule of thumb {np.mean(rule == c.pitted):.0%}")
+    print(pd.crosstab(c.call_pit, c.pitted, rownames=["assistant: pit"], colnames=["team pitted"]).to_string())
+
+
 if __name__ == "__main__":
     data = load()
     data["overtakes"] = pd.read_csv("data/overtakes.csv")
+    if sys.argv[1:] == ["check"]:
+        replay_check(data)
+        raise SystemExit
     s, r, code = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3].upper()
     if sys.argv[4] != "replay":
         assist(s, r, code, int(sys.argv[4]), data)

@@ -119,5 +119,17 @@ Replays a real race as if live, from a chosen lap, for a chosen driver:
 
 Miami 2024, Norris: after lap 27, leading on 27-lap-old mediums with no stop yet, it says a safety car
 now means pit (P2.0 vs P7.0 staying out). The safety car came on lap 28, he pitted and won. Verstappen,
-already stopped, gets "stay out", which is what he did. Known limitation: the 3x wear scale probably
-overstates the fresh-tyre advantage late in a race, so late-SC "free stop" calls lean towards pitting.
+already stopped, gets "stay out", which is what he did.
+
+Checked against what teams actually did (`python assist.py check`, dry races 2023-2026 with exact OpenF1
+safety car laps):
+
+| | Assistant | Baseline |
+|---|---|---|
+| Pit window: best lap within 3 laps of the real first stop (350 stops, asked 8 laps before) | 35% | pre-race plan 30% |
+| Pit window: median error | 5 laps | pre-race plan 6 laps |
+| Safety car calls: pit or stay out matches the team (334 car-SCs) | 57% | always pit 62%, "pit if no stop yet or tyres 15+ laps old" 64% |
+
+It recommends stopping ~3 laps earlier than teams do, and under a safety car it pits cars that have
+already stopped on 11-20-lap-old tyres 95% of the time (teams: 53%). Both point the same way: the 3x wear
+scale (calibrated on stop counts) overstates how much fresh tyres are worth within a stint.
