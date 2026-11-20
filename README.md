@@ -130,6 +130,16 @@ safety car laps):
 | Pit window: median error | 5 laps | pre-race plan 6 laps |
 | Safety car calls: pit or stay out matches the team (334 car-SCs) | 57% | always pit 62%, "pit if no stop yet or tyres 15+ laps old" 64% |
 
-It recommends stopping ~3 laps earlier than teams do, and under a safety car it pits cars that have
-already stopped on 11-20-lap-old tyres 95% of the time (teams: 53%). Both point the same way: the 3x wear
-scale (calibrated on stop counts) overstates how much fresh tyres are worth within a stint.
+Calibrating the assistant's own wear scale (`python assist.py tune`: chosen on 2023, tested on 2024-2026):
+
+| Wear scale | Pit window within 3 laps | Median timing bias | SC calls match team | Says pit / teams pitted |
+|---|---|---|---|---|
+| 1.5x | 26% | 7 laps late | 58% | 49% / 68% |
+| **3x** | **47%** | 1 lap early | 59% | 51% / 68% |
+| 4x | 46% | 3 laps early | 62% | 64% / 68% |
+| 5x | 39% | 3 laps early | 46% | 51% / 68% |
+
+(2023 decisions.) 3x is right for pit timing, and held out on 2024-2026 it still beats the pre-race plan
+(31% vs 26% within 3 laps). Safety car calls barely move with the wear scale and never beat "always pit",
+so that weakness isn't tyre wear: it's how the simulation values a stop under a safety car (for example,
+it pits cars that already stopped on 11-20-lap-old tyres 95% of the time; teams do 53%).

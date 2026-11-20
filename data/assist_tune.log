@@ -1,0 +1,13 @@
+2023 score by wear scale (mean of pit-window and SC-call accuracy): {1: '38%', 1.5: '42%', 2: '43%', 3: '53%'}
+
+2024-2026 with wear x3:
+Pit window, 274 first stops (asked 8 laps before):
+  best lap within 3 laps of the real stop: assistant 31%, pre-race plan 26%
+  median error: assistant 7 laps, pre-race plan 6 laps
+  real stop inside the window: 38% (median window 4 laps wide)
+Safety car calls, 235 car-SCs (60% actually pitted):
+  assistant 56%   always pit 60%   never pit 40%   rule of thumb 60%
+team pitted     False  True 
+assistant: pit              
+False              32     40
+True               63    100
