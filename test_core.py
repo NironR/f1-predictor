@@ -93,6 +93,37 @@ def test_cached_file_rebuilds_when_its_source_changes():
         assert cached(out, build, src).x.iat[0] == 2 and len(calls) == 2
 
 
+def test_fetch_retries_transient_network_errors():
+    """A timeout or 5xx mid-download is retried, not fatal (the first CI run died on one)."""
+    import fetch
+    import requests
+
+    class Resp:
+        def __init__(self, code):
+            self.status_code, self.text = code, '{"ok": 1}'
+        def json(self):
+            return {"ok": 1}
+        def raise_for_status(self):
+            pass
+
+    replies = [requests.Timeout(), Resp(503), Resp(200)]
+    def fake_get(*args, **kwargs):
+        r = replies.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+    real_get, real_sleep = fetch.requests.get, fetch.time.sleep
+    cache = fetch.RAW / "test_retry.json"
+    fetch.requests.get, fetch.time.sleep = fake_get, lambda s: None
+    try:
+        assert fetch.get("https://example.invalid", {}, cache.name) == {"ok": 1}
+        assert not replies  # timeout and 503 both retried
+    finally:
+        fetch.requests.get, fetch.time.sleep = real_get, real_sleep
+        cache.unlink(missing_ok=True)
+
+
 def test_features_never_use_later_races():
     from model import check_no_leak
     check_no_leak(pd.read_csv("data/races.csv"))

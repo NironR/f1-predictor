@@ -36,13 +36,19 @@ def get(url, params, cache, pause=0.3, max_age=None):
     for attempt in range(8):
         try:
             r = requests.get(url, params=params, timeout=30)
-        except requests.RequestException:
-            if path.exists():  # offline: an old copy beats failing
+        except requests.RequestException:  # timeouts, dropped connections: usually transient
+            if attempt < 7:
+                time.sleep(5 * (attempt + 1))
+                continue
+            if path.exists():  # still failing: an old copy beats failing
                 print(f"warning: using cached {cache}, refresh failed")
                 return json.loads(path.read_text())
             raise
         if r.status_code == 429:  # Jolpica: 4 req/s, 500 req/hour
             time.sleep(60 * (attempt + 1))
+            continue
+        if r.status_code >= 500 and attempt < 7:  # server hiccup
+            time.sleep(5 * (attempt + 1))
             continue
         if r.status_code == 404:  # OpenF1: session has no messages
             path.write_text("[]")
