@@ -31,6 +31,18 @@ python assist.py 2024 6 NOR replay  # its call every 5 laps vs what Norris actua
 python sc_calls.py                  # pit-or-stay under SC learned from teams, vs baselines
 ```
 
+## Results page
+
+`docs/index.html` shows the models race by race (2021-2026): predicted vs actual finishing order,
+safety car risk by lap, tyre wear (pre-race estimate vs measured, and each team vs the field), and the
+strategy calls vs what teams did. No dependencies; rebuild its data after re-running the models with:
+
+```bash
+python build_site.py   # -> docs/data.js
+```
+
+To view it locally: `python -m http.server 8765 --directory docs`, then open http://localhost:8765.
+
 ## Data sources
 
 - [Jolpica](https://github.com/jolpica/jolpica-f1) (Ergast-compatible): results, qualifying, lap times

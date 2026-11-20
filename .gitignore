@@ -3,3 +3,4 @@ __pycache__/
 data/raw/
 data/fetch.log
 data/tyre_laps.csv
+.claude/
