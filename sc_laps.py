@@ -10,7 +10,9 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 
-from model import features
+from sklearn.metrics import roc_auc_score
+
+from model import features, save_metrics
 from risk import NOT_RACED, coefficients, logit, track_history, walk_forward
 
 FEATURES = ["lap1", "lap_frac", "restart", "recent_retirements", "cars_running", "rain_mm",
@@ -73,6 +75,9 @@ if __name__ == "__main__":
         "logistic": logit(1.0),
         "boosted": lambda: HistGradientBoostingClassifier(max_iter=200, learning_rate=0.03, max_depth=3,
                                                           min_samples_leaf=100, random_state=0)})
+
+    save_metrics("sc_lap", {"auc": roc_auc_score(p.sc_start, p.logistic),
+                            "lap1_baseline_auc": roc_auc_score(p.sc_start, p.lap1_vs_rest)})
 
     phase = pd.cut(p.lap_frac, [0, 0.33, 0.67, 1.0], labels=["early", "middle", "late"]).astype(str)
     p["phase"] = phase.where(p.lap1 == 0, "lap 1").where(p.restart == 0, "restart")

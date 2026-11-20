@@ -18,6 +18,7 @@ import sys
 import numpy as np
 import pandas as pd
 
+from model import TEST_SEASONS, save_metrics
 from race_sim import THRESHOLDS, calibrate, field, jittered, simulate
 from sim import MIN_STINT, before, load, planner, race_inputs, shrunk
 from tyres import DRY, FIT_LAP_SD, PRIORS, TEAM_LINEAGE, clean, race_fit
@@ -173,7 +174,7 @@ def assist(season, rnd, code, lap, data, verbose=True, window=True, wear=WEAR_SC
     return results, best_name, sc, actual
 
 
-def replay_check(data, seasons=(2023, 2024, 2025, 2026), wear=WEAR_SCALE, lead=8, near=3, tol=0.25,
+def replay_check(data, seasons=tuple(s for s in TEST_SEASONS if s >= 2023), wear=WEAR_SCALE, lead=8, near=3, tol=0.25,
                  out="data/assist", verbose=True):
     """The assistant against what teams actually did, in dry races with exact OpenF1 safety car laps.
     Pit window: `lead` laps before each top-6 finisher's first green-flag stop, is the best lap within
@@ -237,6 +238,11 @@ def replay_check(data, seasons=(2023, 2024, 2025, 2026), wear=WEAR_SCALE, lead=8
         c.to_csv(f"{out}_sc_check.csv", index=False)
     if verbose:
         summarise(w, c, lead, near)
+    if out:  # the canonical run: record headline results, pit timing held out from the 2023 tuning
+        held = w[w.season >= 2024]
+        save_metrics("assistant", {"pit_within_3": ((held.best - held.actual).abs() <= near).mean(),
+                                   "pre_race_within_3": ((held.pre_race - held.actual).abs() <= near).mean(),
+                                   "sc_calls": (c.call_pit == c.pitted).mean(), "always_pit": c.pitted.mean()})
     return w, c
 
 

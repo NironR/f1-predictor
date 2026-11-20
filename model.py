@@ -3,7 +3,9 @@
 Each test season is predicted by a model trained only on earlier seasons.
 Writes data/predictions.csv (predicted vs actual for every tested race).
 """
+import json
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -13,8 +15,16 @@ from sklearn.inspection import permutation_importance
 
 FEATURES = ["grid", "quali_gap", "teammate_grid_diff", "driver_form", "team_form",
             "out_of_position", "team_dnf_rate", "track_order_corr", "rain", "air_temp"]
+METRICS = Path("data/metrics.json")
 TEST_SEASONS = range(2021, datetime.now().year + 1)  # every season since 2021, incl. the current one
 FINISHED = r"^(?:Finished|Lapped|\+\d+ Laps?)$"
+
+
+def save_metrics(key, values):
+    """Record a script's headline results in data/metrics.json (read by build_site.py)."""
+    m = json.loads(METRICS.read_text()) if METRICS.exists() else {}
+    m[key] = {k: round(float(v), 4) for k, v in values.items()}
+    METRICS.write_text(json.dumps(m, indent=2) + "\n")
 
 
 def roll(df, by, col, n):
@@ -106,6 +116,9 @@ if __name__ == "__main__":
                      **{f"grid_{k}": v for k, v in b.items()}, **{f"model_{k}": v for k, v in m.items()}})
     pd.set_option("display.width", 200)
     print(pd.DataFrame(rows).round(3).to_string(index=False))
+    allr = rows[-1]
+    save_metrics("finish", {"model_spearman": allr["model_spearman"], "grid_spearman": allr["grid_spearman"],
+                            "model_mae": allr["model_mae"], "grid_mae": allr["grid_mae"], "races": allr["races"]})
 
     last = p[p.season == max(TEST_SEASONS)]
     imp = permutation_importance(model, last[FEATURES], last.position, n_repeats=10, random_state=0)

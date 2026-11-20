@@ -242,10 +242,10 @@ function hover(node, html) {
 function tiles() {
   const s = D.summary;
   const items = [
-    ["Finishing order", s.finish.model_spearman.toFixed(3), `rank correlation vs ${s.finish.grid_spearman} for grid order, ${s.finish.races} races`],
-    ["Safety car, per lap", s.sc_lap_auc.toFixed(2), "AUC for which lap a safety car starts (0.5 = guessing)"],
-    ["Tyre wear, in race", `${s.tyre_in_race[0]} → ${s.tyre_in_race[2]}`, "error (s/lap) before the start → after 40 laps"],
-    ["Pit timing", pct(s.pit_window.assistant), `of first stops called within 3 laps vs ${pct(s.pit_window.pre_race)} pre-race (2024–26)`],
+    ["Finishing order", s.finish.model_spearman.toFixed(3), `rank correlation vs ${s.finish.grid_spearman.toFixed(3)} for grid order, ${s.finish.races} races`],
+    ["Safety car, per lap", s.sc_lap.auc.toFixed(2), "AUC for which lap a safety car starts (0.5 = guessing)"],
+    ["Tyre wear, in race", `${s.tyre_in_race.mae_pre_race.toFixed(3)} → ${s.tyre_in_race.mae_after_40.toFixed(3)}`, "error (s/lap) before the start → after 40 laps"],
+    ["Pit timing", pct(s.assistant.pit_within_3), `of first stops called within 3 laps vs ${pct(s.assistant.pre_race_within_3)} pre-race (held out, 2024 on)`],
     ["Pit under a safety car?", pct(s.sc_calls.model), `matches teams; "always pit" gets ${pct(s.sc_calls.always_pit)}. Not predictable from timing data`],
   ];
   $("tiles").innerHTML = items.map(([l, v, n]) =>

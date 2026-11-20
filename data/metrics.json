@@ -1,0 +1,29 @@
+{
+  "assistant": {
+    "pit_within_3": 0.3102,
+    "pre_race_within_3": 0.2628,
+    "sc_calls": 0.5689,
+    "always_pit": 0.6198
+  },
+  "finish": {
+    "model_spearman": 0.6669,
+    "grid_spearman": 0.6328,
+    "model_mae": 3.3041,
+    "grid_mae": 3.4405,
+    "races": 134.0
+  },
+  "sc_lap": {
+    "auc": 0.7866,
+    "lap1_baseline_auc": 0.5892
+  },
+  "tyre_in_race": {
+    "mae_pre_race": 0.0329,
+    "mae_after_20": 0.0264,
+    "mae_after_40": 0.021
+  },
+  "sc_calls": {
+    "model": 0.6137,
+    "always_pit": 0.5961,
+    "rule_of_thumb": 0.6216
+  }
+}

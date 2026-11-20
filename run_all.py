@@ -14,6 +14,7 @@ FAST = [
     ["sc_laps.py"],      # -> sc_lap_predictions.csv
     ["tyres.py"],        # -> tyre_deg.csv, tyre_shape.csv, team_wear.csv
     ["sc_calls.py"],     # -> sc_decisions.csv
+    ["test_core.py"],    # core logic checks: stop here (no site rebuild) if anything broke
 ]
 SLOW = [
     ["sim.py", "backtest"],       # -> strategy_backtest.csv

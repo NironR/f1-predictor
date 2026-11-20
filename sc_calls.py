@@ -12,7 +12,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from model import TEST_SEASONS
+from model import TEST_SEASONS, save_metrics
 
 CAR = ["stops_done", "tyre_age", "position"]
 RACE = ["laps_left", "progress", "field_unstopped", "field_tyre_age", "pit_loss", "season"]
@@ -72,6 +72,8 @@ if __name__ == "__main__":
     print(f"Walk-forward 2021-2026 ({len(p)} decisions), share matching what the team did:")
     for k in ("always_pit", "rule_of_thumb", "car_only", "sc_level"):
         print(f"  {k:14s} {np.mean(p[k] == p.pitted):.0%}")
+    save_metrics("sc_calls", {"model": np.mean(p.sc_level == p.pitted), "always_pit": p.pitted.mean(),
+                              "rule_of_thumb": np.mean(p.rule_of_thumb == p.pitted)})
     print("By season:", p.groupby("season").apply(
         lambda g: f"{np.mean(g.sc_level == g.pitted):.0%} vs always-pit {g.pitted.mean():.0%}",
         include_groups=False).to_dict())

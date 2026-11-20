@@ -7,6 +7,10 @@ predictions with what actually happened.
 Every model is tested walk-forward: each season is predicted by a model trained only on
 earlier seasons, and scored against a simple baseline.
 
+**Results page: https://nironr.github.io/f1-predictor/** - refreshed automatically after each race
+weekend by a GitHub Action (`.github/workflows/refresh.yml`). Current headline numbers are in
+`data/metrics.json`, written by the scripts themselves; figures quoted below are from when each part was built.
+
 ## Setup
 
 Python 3.12.
@@ -21,7 +25,8 @@ python -m venv .venv
 Everything, in order (fetch new races, re-fit the models, rebuild the results page):
 
 ```bash
-python run_all.py          # ~10 min; add --full to also re-run the strategy backtests (~1.5 h)
+python run_all.py          # ~3 min with cached data; add --full to also re-run the strategy backtests (~1.5 h)
+python test_core.py        # core logic checks (planner, tyre ages, SC reactions, caching, no look-ahead)
 ```
 
 Or step by step:
@@ -85,7 +90,12 @@ races where the whole field pitted together (wet starts) from producing nonsense
 
 - Fuel + track evolution: cars get ~0.057 s/lap faster through a race; wear ~0.04 s per lap of tyre age.
 - Wear isn't linear: tyres are slow for the first ~3 laps (warm-up), and softs/mediums fall off a cliff
-  past ~30 laps (+0.1 to +0.5 s/lap); hards hold to ~40.
+  past ~30 laps (+0.1 to +0.5 s/lap); hards hold to ~40. This curve is fitted per season on earlier
+  seasons only, so simulations of a test season never use it (the soft cliff past 40 laps only has
+  enough data once every season is pooled).
+- Known non-walk-forward choices: a few constants were set looking at all seasons (pre-race wear
+  uncertainty `PARAM_SD`, the safety car pit-loss ratio, which `sim.py pitcheck` re-checks) and the
+  assistant's 3x wear scale was tuned on 2023 (its held-out numbers are 2024 on).
 - Pre-race, the track's own history predicts wear best but only ~5% better than the overall average;
   race-to-race variation is ~8x the measurement noise.
 - In-race, the race's own laps pin wear down: error 0.032 s/lap pre-race → 0.026 after 20 laps → 0.019 after 40.

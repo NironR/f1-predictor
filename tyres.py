@@ -10,7 +10,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import make_pipeline
 
-from model import TEST_SEASONS
+from model import TEST_SEASONS, save_metrics
 from risk import track_history
 
 DRY = ["SOFT", "MEDIUM", "HARD"]
@@ -120,16 +120,22 @@ AGE_BINS = [0, 3, 6, 10, 15, 20, 25, 30, 35, 40, 50, 80]
 def wear_shape(laps):
     """Pooled non-linear part of wear per compound: mean residual of the linear fit by tyre-age bin.
     Captures warm-up (first laps slower) and the late-stint cliff. Add it to the linear slope.
-    ponytail: one global curve per compound; long stints are mostly where tyres last (selection bias),
+    One curve per season, fitted only on earlier seasons, so walk-forward tests never see the future
+    (the last one, for next season, uses everything).
+    ponytail: one curve per compound; long stints are mostly where tyres last (selection bias),
     so the cliff is if anything understated. Per-circuit curves if there's enough data."""
     r = pd.concat(g.assign(resid=race_fit(g, resid_only=True))
                   for _, g in laps.groupby(["season", "round"]))
     r["age_bin"] = pd.cut(r.tyre_life, AGE_BINS)
-    shape = r.groupby(["compound", "age_bin"], observed=True).resid.agg(["mean", "size"]).reset_index()
-    shape["mean"] = shape["mean"].where(shape["size"] >= 100)  # too few laps: no correction
-    shape["age_from"] = shape.age_bin.map(lambda b: b.left + 1).astype(int)
-    shape["age_to"] = shape.age_bin.map(lambda b: b.right).astype(int)
-    return shape.rename(columns={"mean": "extra_s"})[["compound", "age_from", "age_to", "extra_s", "size"]]
+    out = []
+    for season in range(int(r.season.min()) + 1, int(r.season.max()) + 2):
+        shape = (r[r.season < season].groupby(["compound", "age_bin"], observed=True).resid
+                 .agg(["mean", "size"]).reset_index())
+        shape["mean"] = shape["mean"].where(shape["size"] >= 100)  # too few laps: no correction
+        shape["age_from"] = shape.age_bin.map(lambda b: b.left + 1).astype(int)
+        shape["age_to"] = shape.age_bin.map(lambda b: b.right).astype(int)
+        out.append(shape.rename(columns={"mean": "extra_s"}).assign(season=season))
+    return pd.concat(out)[["season", "compound", "age_from", "age_to", "extra_s", "size"]]
 
 
 TARGETS = ["fuel_per_lap", *[f"deg_{c}" for c in DRY], "off_SOFT", "off_HARD"]
@@ -203,6 +209,8 @@ def in_race_report(laps, deg):
     print("\nIn-race updating: MAE of deg estimate (s/lap) vs laps of this race seen so far")
     print(e.groupby("after_lap").agg(mae=("err", "mean"), share_compounds_seen=("seen", "mean"))
           .round(4).to_string())
+    mae = e.groupby("after_lap").err.mean()
+    save_metrics("tyre_in_race", {"mae_pre_race": mae[0], "mae_after_20": mae[20], "mae_after_40": mae[40]})
     print("\n...only compounds already run in this race:")
     print(e[e.seen].groupby(["after_lap", "compound"]).err.mean().unstack().round(4).to_string())
 
@@ -251,9 +259,10 @@ if __name__ == "__main__":
     prediction_report(deg)
     in_race_report(laps, deg)
     team_wear_report(deg)
-    shape = wear_shape(laps)
-    shape.to_csv("data/tyre_shape.csv", index=False)
-    print("\nNon-linear wear on top of the linear slope (s per lap; + = slower; blank = <100 laps):")
+    shapes = wear_shape(laps)
+    shapes.to_csv("data/tyre_shape.csv", index=False)
+    shape = shapes[shapes.season == shapes.season.max()]
+    print("\nNon-linear wear on top of the linear slope, all seasons (s per lap; + = slower; blank = <100 laps):")
     print(shape.assign(age=shape.age_from.astype(str) + "-" + shape.age_to.astype(str))
           .pivot(index=["age_from", "age"], columns="compound", values="extra_s")
           .droplevel(0)[DRY].round(3).to_string())

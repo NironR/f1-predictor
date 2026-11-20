@@ -1,0 +1,48 @@
+name: Refresh data and results page
+
+# After each race weekend: fetch new races, re-fit the models, run the core checks, rebuild docs/,
+# and commit if anything changed (GitHub Pages then republishes the site).
+on:
+  schedule:
+    - cron: "0 6 * * 1,2"   # Mon + Tue 06:00 UTC: data sources usually settle within a day of a race
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: refresh
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # Warm cache: ~3 min. Cold cache (evicted after 7 days unused): ~1 h, mostly the rate-limited
+    # pre-2023 lap download from Jolpica.
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Restore raw API cache
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: raw-${{ github.run_id }}
+          restore-keys: raw-
+
+      - name: Fetch, re-fit, check, rebuild site
+        run: python run_all.py
+
+      - name: Commit refreshed results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data docs
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Refresh data and results after latest race"
+          git push

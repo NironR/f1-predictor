@@ -79,14 +79,9 @@ def main():
                                "pre_race": int(x.pre_race)} for x in w.itertuples()]
         out.append(race)
 
-    # Headline results, as reported by model.py / sc_laps.py / tyres.py / assist.py tune / sc_calls.py
+    # Headline results, written by model.py / sc_laps.py / tyres.py / assist.py / sc_calls.py
     # (all walk-forward or held-out; see README).
-    summary = {
-        "finish": {"model_spearman": 0.666, "grid_spearman": 0.634, "model_mae": 3.31, "grid_mae": 3.43, "races": 133},
-        "sc_lap_auc": 0.79, "tyre_in_race": [0.032, 0.026, 0.019],
-        "pit_window": {"assistant": 0.31, "pre_race": 0.26},
-        "sc_calls": {"model": 0.61, "always_pit": 0.60},
-    }
+    summary = json.loads(Path("data/metrics.json").read_text())
     Path("docs").mkdir(exist_ok=True)
     Path("docs/data.js").write_text("window.F1 = " + json.dumps({"races": out, "summary": summary},
                                                                   separators=(",", ":")) + ";\n", encoding="utf-8")

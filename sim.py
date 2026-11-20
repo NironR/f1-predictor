@@ -132,7 +132,7 @@ def race_inputs(season, rnd, data, wear_scale=1.0):
     durations = (before(periods, season, rnd).eval("end - onset + 1").clip(1, 10)).to_numpy()
     n_laps = int(races[(races.season == season) & (races["round"] == rnd)].laps.max())
     curve = {c: np.zeros(100) for c in DRY}  # extra s/lap by tyre age (index = age)
-    for row in shape.fillna({"extra_s": 0}).itertuples():
+    for row in shape[shape.season == season].fillna({"extra_s": 0}).itertuples():  # earlier seasons only
         curve[row.compound][row.age_from:row.age_to + 1] = wear_scale * row.extra_s
     for c in DRY:
         curve[c][81:] = curve[c][80]
