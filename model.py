@@ -3,6 +3,8 @@
 Each test season is predicted by a model trained only on earlier seasons.
 Writes data/predictions.csv (predicted vs actual for every tested race).
 """
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
@@ -11,7 +13,7 @@ from sklearn.inspection import permutation_importance
 
 FEATURES = ["grid", "quali_gap", "teammate_grid_diff", "driver_form", "team_form",
             "out_of_position", "team_dnf_rate", "track_order_corr", "rain", "air_temp"]
-TEST_SEASONS = range(2021, 2027)
+TEST_SEASONS = range(2021, datetime.now().year + 1)  # every season since 2021, incl. the current one
 FINISHED = r"^(?:Finished|Lapped|\+\d+ Laps?)$"
 
 

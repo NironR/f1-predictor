@@ -20,26 +20,10 @@ from tyres import DRY
 
 MIN_GAP = 0.4            # s; closest a car can follow without passing
 SC_GAP = 0.8             # s between cars when bunched behind the safety car
-LAP_NOISE = 0.3          # s, lap-to-lap variation per car
+SIM_LAP_NOISE = 0.3          # s, lap-to-lap variation per car
 THRESHOLDS = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0]  # pace advantage (s/lap) for a 50% pass chance
 PASS_SOFTNESS = 0.15  # s; how sharply pass chance rises around the threshold
 REP_SLOTS = (3, 8)       # grid slots of the car whose strategy we choose
-
-
-def overtakes(g):
-    """On-track position swaps in one real race: green laps, neither car pitting."""
-    P = g.pivot_table(index="lap", columns="code", values="position", aggfunc="first")
-    flag = lambda col: g.pivot_table(index="lap", columns="code", values=col,
-                                     aggfunc=lambda x: x.notna().any()).reindex_like(P).fillna(False).astype(bool)
-    pit = flag("pit_in") | flag("pit_out")
-    green = g.groupby("lap").track_status.agg(lambda s: (s == 1).mean() > 0.9)
-    n = 0
-    for L in P.index[2:]:
-        ok = P.loc[L].notna() & P.loc[L - 1].notna() & ~pit.loc[L] & ~pit.loc[L - 1]
-        if green.get(L, False):
-            a, b = P.loc[L - 1, ok].to_numpy(), P.loc[L, ok].to_numpy()
-            n += int(((a[:, None] < a[None, :]) & (b[:, None] > b[None, :])).sum())
-    return n
 
 
 def field(season, rnd, data):
@@ -105,7 +89,7 @@ def simulate(inp, pace, base, plans, threshold, n_sims, rng, react=None, sc_fixe
     for lap in range(start_lap + 1, N + 1):
         c, a = comp[:, :, lap], age[:, :, lap]                                   # sims x cars
         lt = (base + car_pace + np.take_along_axis(true_off, c, 1) + np.take_along_axis(true_deg, c, 1) * a
-              + car_deg * a + curve[c, a] + rng.normal(0, LAP_NOISE, (n_sims, n_cars)))
+              + car_deg * a + curve[c, a] + rng.normal(0, SIM_LAP_NOISE, (n_sims, n_cars)))
         pitting = pit[:, :, lap]
         loss = np.where(sc[:, lap], SC_PIT_FACTOR, 1.0)[:, None] * inp["pit"]
         prov = T + lt + pitting * loss
@@ -241,12 +225,6 @@ def backtest(data, scales=(2, 3)):
 
 if __name__ == "__main__":
     data = load()
-    try:
-        data["overtakes"] = pd.read_csv("data/overtakes.csv")
-    except FileNotFoundError:
-        data["overtakes"] = (data["tyre_laps"].groupby(["season", "round", "circuit"])
-                             .apply(overtakes, include_groups=False).rename("overtakes").reset_index())
-        data["overtakes"].to_csv("data/overtakes.csv", index=False)
     if sys.argv[1:] == ["backtest"]:
         backtest(data)
     else:

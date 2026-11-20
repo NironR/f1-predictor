@@ -26,7 +26,7 @@ TEAM_LINEAGE = {"Toro Rosso": "racing_bulls", "AlphaTauri": "racing_bulls", "RB"
                 "Alfa Romeo": "sauber", "Kick Sauber": "sauber", "Audi": "sauber", "Force India": "aston_martin",
                 "Racing Point": "aston_martin", "Aston Martin": "aston_martin", "Renault": "alpine",
                 "Alpine": "alpine", "Haas F1 Team": "haas", "Red Bull Racing": "red_bull"}
-LAP_NOISE = 0.65  # typical residual sd (s) of a clean lap, scales prior strength vs data
+FIT_LAP_SD = 0.65  # typical residual sd (s) of a clean lap, scales prior strength vs data
 
 
 def relative_compounds(t):
@@ -54,7 +54,7 @@ def clean(t):
     return t[n >= MIN_LAPS]
 
 
-def race_fit(g, priors=PRIORS, noise=LAP_NOISE, resid_only=False, with_pace=False):
+def race_fit(g, priors=PRIORS, noise=FIT_LAP_SD, resid_only=False, with_pace=False):
     """One race's OLS. Returns fuel effect, compound offsets vs MEDIUM, and deg slopes (s per lap of age),
     or with resid_only, each lap's residual (actual - fitted)."""
     used = [c for c in DRY if (g.compound == c).any()]
@@ -184,7 +184,7 @@ def in_race_errors(laps, deg, seasons, trust=1.0, cutoffs=(10, 20, 30, 40)):
         priors = {**specific, **{k: v for k, v in PRIORS.items() if k not in specific}}
         for cut in (0, *cutoffs):
             sub = g[g.lap <= cut]
-            est = race_fit(sub, priors, noise=LAP_NOISE * trust) if len(sub) else {}
+            est = race_fit(sub, priors, noise=FIT_LAP_SD * trust) if len(sub) else {}
             for c in DRY:
                 if pd.notna(truth[f"deg_{c}"]):
                     seen = int((sub.compound == c).sum())

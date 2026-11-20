@@ -20,7 +20,7 @@ import pandas as pd
 
 from race_sim import THRESHOLDS, calibrate, field, jittered, simulate
 from sim import MIN_STINT, before, load, planner, race_inputs, shrunk
-from tyres import DRY, LAP_NOISE, PRIORS, TEAM_LINEAGE, clean, race_fit
+from tyres import DRY, FIT_LAP_SD, PRIORS, TEAM_LINEAGE, clean, race_fit
 
 WEAR_SCALE = 3  # best for pit timing on 2023 decisions (python assist.py tune); held-out 2024-26 below
 TRUST = 4       # how much less than face value to trust this race's laps (tuned in tyres.in_race_report)
@@ -49,7 +49,7 @@ def live_params(t, lap, inp, wear):
     laps = clean(t[t.lap <= lap])
     pre = {c: inp["params"][("deg", c)] / wear for c in DRY}
     priors = {**{f"deg_{c}": (pre[c], 0.045) for c in DRY}, **PRIORS}
-    est = race_fit(laps, priors, noise=LAP_NOISE * TRUST, with_pace=True) if len(laps) else pd.Series(dtype=float)
+    est = race_fit(laps, priors, noise=FIT_LAP_SD * TRUST, with_pace=True) if len(laps) else pd.Series(dtype=float)
     deg = {c: wear * (est.get(f"deg_{c}", np.nan) if (laps.compound == c).any() else pre[c])
            for c in DRY}
     team = {k[3:]: wear * v for k, v in est.items() if k.startswith("tw_") and not k.endswith("_se")}
@@ -274,7 +274,6 @@ def tune(data, scales=(1, 1.5, 2, 3)):
 
 if __name__ == "__main__":
     data = load()
-    data["overtakes"] = pd.read_csv("data/overtakes.csv")
     if sys.argv[1:] == ["check"]:
         replay_check(data)
         raise SystemExit

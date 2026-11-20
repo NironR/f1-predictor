@@ -9,12 +9,22 @@ earlier seasons, and scored against a simple baseline.
 
 ## Setup
 
+Python 3.12.
+
 ```bash
 python -m venv .venv
 .venv/Scripts/python -m pip install -r requirements.txt
 ```
 
 ## Run
+
+Everything, in order (fetch new races, re-fit the models, rebuild the results page):
+
+```bash
+python run_all.py          # ~10 min; add --full to also re-run the strategy backtests (~1.5 h)
+```
+
+Or step by step:
 
 ```bash
 python fetch.py   # pull data into data/races.csv (first full run ~1h due to API rate limits; cached after)

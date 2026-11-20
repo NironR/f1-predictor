@@ -10,6 +10,7 @@ Usage:  python sim.py 2024 21      # strategy report for one race (pre-race info
 """
 import sys
 from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -49,6 +50,22 @@ def pit_stops(t):
                 out.append({"season": s, "round": r, "circuit": circ, "under_sc": under_sc,
                             "loss": mine - base.median()})
     return pd.DataFrame(out)
+
+
+def overtakes(g):
+    """On-track position swaps in one real race: green laps, neither car pitting."""
+    P = g.pivot_table(index="lap", columns="code", values="position", aggfunc="first")
+    flag = lambda col: g.pivot_table(index="lap", columns="code", values=col,
+                                     aggfunc=lambda x: x.notna().any()).reindex_like(P).fillna(False).astype(bool)
+    pit = flag("pit_in") | flag("pit_out")
+    green = g.groupby("lap").track_status.agg(lambda s: (s == 1).mean() > 0.9)
+    n = 0
+    for L in P.index[2:]:
+        ok = P.loc[L].notna() & P.loc[L - 1].notna() & ~pit.loc[L] & ~pit.loc[L - 1]
+        if green.get(L, False):
+            a, b = P.loc[L - 1, ok].to_numpy(), P.loc[L, ok].to_numpy()
+            n += int(((a[:, None] < a[None, :]) & (b[:, None] > b[None, :])).sum())
+    return n
 
 
 def queue_loss(t):
@@ -220,20 +237,28 @@ def monte_carlo(inp, n_sims=1000, seed=0):
 
 # ---------- data + reports ----------
 
+def cached(path, build, *sources):
+    """Read `path`, rebuilding it first if it's missing or older than any of its source files."""
+    p = Path(path)
+    if not p.exists() or any(Path(s).stat().st_mtime > p.stat().st_mtime for s in sources):
+        build().to_csv(p, index=False)
+    return pd.read_csv(p)
+
+
 def load():
     from sc_laps import lap_table
     from model import features
     t = pd.read_csv("data/tyre_laps.csv", low_memory=False)
-    try:
-        stops = pd.read_csv("data/pit_stops.csv")
-    except FileNotFoundError:
-        stops = pit_stops(t)
-        stops.to_csv("data/pit_stops.csv", index=False)
     races = pd.read_csv("data/races.csv")
     periods = pd.read_csv("data/sc_periods.csv")
-    return {"tyre_laps": t, "stops": stops, "races": races, "periods": periods,
-            "deg": pd.read_csv("data/tyre_deg.csv"), "shape": pd.read_csv("data/tyre_shape.csv"),
-            "laps_sc": lap_table(features(races), periods)}
+    count = lambda: (t.groupby(["season", "round", "circuit"]).apply(overtakes, include_groups=False)
+                     .rename("overtakes").reset_index())
+    return {"tyre_laps": t, "races": races, "periods": periods,
+            "stops": cached("data/pit_stops.csv", lambda: pit_stops(t), "data/tyre_laps.csv"),
+            "overtakes": cached("data/overtakes.csv", count, "data/tyre_laps.csv"),
+            "laps_sc": cached("data/sc_lap_table.csv", lambda: lap_table(features(races), periods),
+                              "data/races.csv", "data/sc_periods.csv"),
+            "deg": pd.read_csv("data/tyre_deg.csv"), "shape": pd.read_csv("data/tyre_shape.csv")}
 
 
 def fmt(plan):

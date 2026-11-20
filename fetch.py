@@ -1,6 +1,7 @@
 """Pull F1 results, qualifying and race-time weather into data/races.csv.
 
-Raw API responses are cached in data/raw/, so re-runs only fetch what's missing.
+Raw API responses are cached in data/raw/, so re-runs only fetch what's missing (the current season's
+are refreshed daily, since it gains races).
 Usage: python fetch.py [first_season] [last_season]
 """
 import json, subprocess, sys, time
@@ -17,14 +18,29 @@ METEO = "https://archive-api.open-meteo.com/v1/archive"
 OPENF1 = "https://api.openf1.org/v1"
 TYRES = "https://github.com/TracingInsights/{}.git"  # FastF1-style laps incl. tyres, 2018+
 OPENF1_FROM = 2023  # OpenF1 starts 2023; 2023 overlaps to validate lap inference
+CURRENT = datetime.now().year
+RACE_ALIASES = {"Brazilian Grand Prix": "São Paulo Grand Prix"}  # Jolpica name -> TracingInsights name
+DAY = 24 * 3600
 
 
-def get(url, params, cache, pause=0.3):
+def expires(season):
+    """Cache lifetime: finished seasons never change; the current one gains races, so refresh daily."""
+    return DAY if season >= CURRENT else None
+
+
+def get(url, params, cache, pause=0.3, max_age=None):
+    """Cached GET. max_age (s): re-download if the cached copy is older (None = keep forever)."""
     path = RAW / cache
-    if path.exists():
+    if path.exists() and (max_age is None or time.time() - path.stat().st_mtime < max_age):
         return json.loads(path.read_text())
     for attempt in range(8):
-        r = requests.get(url, params=params, timeout=30)
+        try:
+            r = requests.get(url, params=params, timeout=30)
+        except requests.RequestException:
+            if path.exists():  # offline: an old copy beats failing
+                print(f"warning: using cached {cache}, refresh failed")
+                return json.loads(path.read_text())
+            raise
         if r.status_code == 429:  # Jolpica: 4 req/s, 500 req/hour
             time.sleep(60 * (attempt + 1))
             continue
@@ -43,7 +59,7 @@ def paged(season, kind):
     races, offset = [], 0
     while True:
         d = get(f"{JOLPICA}/{season}/{kind}.json", {"limit": 100, "offset": offset},
-                f"{season}_{kind}_{offset}.json")["MRData"]
+                f"{season}_{kind}_{offset}.json", max_age=expires(season))["MRData"]
         races += d["RaceTable"]["Races"]
         offset += 100
         if offset >= int(d["total"]):
@@ -150,7 +166,7 @@ def race_control(season):
     """{race date: {sc, vsc, red}} from OpenF1 race control messages."""
     out = {}
     for s in get(f"{OPENF1}/sessions", {"year": season, "session_name": "Race"},
-                 f"of1_sessions_{season}.json", pause=2):
+                 f"of1_sessions_{season}.json", pause=2, max_age=expires(season)):
         msgs = get(f"{OPENF1}/race_control", {"session_key": s["session_key"]},
                    f"of1_rc_{s['session_key']}.json", pause=2)
         text = {(m.get("message") or "").upper().strip() for m in msgs}
@@ -186,6 +202,9 @@ def tyre_laps(season):
                         TYRES.format(season), str(repo)], check=True)
         subprocess.run(["git", "-C", str(repo), "sparse-checkout", "set", "--no-cone",
                         "/*/Race/*/laptimes.json"], check=True)
+    elif season >= CURRENT:  # current season gains races: update to the latest commit
+        subprocess.run(["git", "-C", str(repo), "fetch", "--quiet", "--depth", "1", "origin"], check=True)
+        subprocess.run(["git", "-C", str(repo), "reset", "--quiet", "--hard", "FETCH_HEAD"], check=True)
     frames = []
     for f in repo.glob("*/Race/*/laptimes.json"):
         d = pd.DataFrame(json.loads(f.read_text(encoding="utf-8")))
@@ -231,7 +250,10 @@ if __name__ == "__main__":
     print(f"wrote data/races.csv: {len(df)} rows, {len(races)} races")
 
     tl = pd.concat([tyre_laps(s) for s in range(first, last + 1)], ignore_index=True)
-    key = races.assign(race=races.race.str.replace(r" in .+$", "", regex=True))  # "Bahrain Grand Prix in Malaysia"
+    # Jolpica and TracingInsights don't always name a race the same way.
+    # Each race matches on its own name or its alias (2018-19 TI says "Brazilian", 2026 "São Paulo").
+    named = races.assign(race=races.race.str.replace(r" in .+$", "", regex=True))  # "Bahrain Grand Prix in Malaysia"
+    key = pd.concat([named, named.assign(race=named.race.replace(RACE_ALIASES))]).drop_duplicates(["season", "race"])
     tl = tl.merge(key[["season", "round", "race", "circuit"]], on=["season", "race"], how="left")
     missing = tl[tl["round"].isna()].drop_duplicates(["season", "race"])
     if len(missing):

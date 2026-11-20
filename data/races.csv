@@ -3859,7 +3859,7 @@ season,round,race,circuit,date,time,lat,lon,driver,team,grid,position,status,lap
 2026,19,Mexico City Grand Prix,rodriguez,2026-11-01,20:00:00Z,19.4042,-99.0907,leclerc,ferrari,3,4,Finished,71,12.0,3.0,77.506,76.944,76.633,0.1,24.45,,1.0,1.0,1.0
 2026,19,Mexico City Grand Prix,rodriguez,2026-11-01,20:00:00Z,19.4042,-99.0907,norris,mclaren,6,5,Finished,71,10.0,6.0,77.733,76.72800000000001,76.824,0.1,24.45,,1.0,1.0,1.0
 2026,19,Mexico City Grand Prix,rodriguez,2026-11-01,20:00:00Z,19.4042,-99.0907,russell,mercedes,2,6,Finished,71,8.0,2.0,77.65899999999999,77.027,76.523,0.1,24.45,,1.0,1.0,1.0
-2026,19,Mexico City Grand Prix,rodriguez,2026-11-01,20:00:00Z,19.4042,-99.0907,lawson,rb,22,7,Finished,71,6.0,8.0,,77.207,77.029,0.1,24.45,,1.0,1.0,1.0
+2026,19,Mexico City Grand Prix,rodriguez,2026-11-01,20:00:00Z,19.4042,-99.0907,lawson,rb,22,7,Finished,71,6.0,22.0,,,,0.1,24.45,,1.0,1.0,1.0
 2026,19,Mexico City Grand Prix,rodriguez,2026-11-01,20:00:00Z,19.4042,-99.0907,bortoleto,audi,13,8,Finished,71,4.0,13.0,77.727,77.68,,0.1,24.45,,1.0,1.0,1.0
 2026,19,Mexico City Grand Prix,rodriguez,2026-11-01,20:00:00Z,19.4042,-99.0907,hadjar,red_bull,7,9,Finished,71,2.0,7.0,77.385,77.047,76.9,0.1,24.45,,1.0,1.0,1.0
 2026,19,Mexico City Grand Prix,rodriguez,2026-11-01,20:00:00Z,19.4042,-99.0907,ryo_hirakawa,haas,18,10,Finished,71,1.0,18.0,78.958,,,0.1,24.45,,1.0,1.0,1.0
@@ -3875,3 +3875,25 @@ season,round,race,circuit,date,time,lat,lon,driver,team,grid,position,status,lap
 2026,19,Mexico City Grand Prix,rodriguez,2026-11-01,20:00:00Z,19.4042,-99.0907,bottas,cadillac,21,20,Retired,42,0.0,21.0,79.852,,,0.1,24.45,,1.0,1.0,1.0
 2026,19,Mexico City Grand Prix,rodriguez,2026-11-01,20:00:00Z,19.4042,-99.0907,stroll,aston_martin,19,21,Retired,5,0.0,19.0,79.072,,,0.1,24.45,,1.0,1.0,1.0
 2026,19,Mexico City Grand Prix,rodriguez,2026-11-01,20:00:00Z,19.4042,-99.0907,alonso,aston_martin,17,22,Retired,5,0.0,17.0,78.908,,,0.1,24.45,,1.0,1.0,1.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,norris,mclaren,1,1,Finished,71,25.0,1.0,90.939,89.207,87.47,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,max_verstappen,red_bull,21,2,Finished,71,18.0,16.0,91.238,,,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,hadjar,red_bull,5,3,Finished,71,15.0,7.0,92.059,87.218,88.763,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,russell,mercedes,7,4,Finished,71,12.0,2.0,91.206,86.745,87.674,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,antonelli,mercedes,2,5,Finished,71,10.0,3.0,92.229,89.30199999999999,88.095,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,piastri,mclaren,10,6,Finished,71,8.0,12.0,92.251,90.369,,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,lawson,rb,3,7,Finished,71,6.0,5.0,92.08500000000001,87.049,88.321,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,leclerc,ferrari,14,8,Finished,71,4.0,4.0,92.12100000000001,88.082,88.289,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,hamilton,ferrari,20,9,Lapped,70,2.0,11.0,91.666,90.001,,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,hulkenberg,audi,4,10,Lapped,70,1.0,6.0,91.693,88.361,88.668,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,arvid_lindblad,rb,18,11,Lapped,70,0.0,14.0,92.306,91.687,,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,alonso,aston_martin,8,12,Lapped,70,0.0,9.0,92.092,89.072,90.311,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,colapinto,alpine,13,13,Lapped,70,0.0,17.0,93.327,,,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,gasly,alpine,15,14,Lapped,70,0.0,18.0,93.449,,,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,albon,williams,9,15,Lapped,70,0.0,10.0,93.15,88.918,90.456,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,bortoleto,audi,19,16,Lapped,70,0.0,22.0,101.564,,,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,bearman,haas,6,17,Lapped,70,0.0,8.0,93.03,89.13,89.831,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,perez,cadillac,22,18,Lapped,69,0.0,21.0,94.509,,,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,sainz,williams,12,19,Lapped,69,0.0,15.0,92.959,91.785,,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,rafael_camara,haas,11,20,Lapped,69,0.0,13.0,92.809,91.515,,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,stroll,aston_martin,16,21,Retired,30,0.0,19.0,93.65299999999999,,,2.1,16.275,,0.0,0.0,0.0
+2026,20,Brazilian Grand Prix,interlagos,2026-11-08,17:00:00Z,-23.7036,-46.6997,bottas,cadillac,17,22,Did not start,0,0.0,20.0,93.774,,,2.1,16.275,,0.0,0.0,0.0

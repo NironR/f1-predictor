@@ -2649,7 +2649,7 @@ season,round,race,driver,team,grid,dnf_prob,dnf,status
 2026,19,Mexico City Grand Prix,leclerc,ferrari,3,0.09656703975553367,0,Finished
 2026,19,Mexico City Grand Prix,norris,mclaren,6,0.10726412063086266,0,Finished
 2026,19,Mexico City Grand Prix,russell,mercedes,2,0.08769561419165386,0,Finished
-2026,19,Mexico City Grand Prix,lawson,rb,22,0.18894643183184887,0,Finished
+2026,19,Mexico City Grand Prix,lawson,rb,22,0.18793915983972836,0,Finished
 2026,19,Mexico City Grand Prix,bortoleto,audi,13,0.13708205595765516,0,Finished
 2026,19,Mexico City Grand Prix,hadjar,red_bull,7,0.1234342667537378,0,Finished
 2026,19,Mexico City Grand Prix,ryo_hirakawa,haas,18,0.1748079824779335,0,Finished
@@ -2662,6 +2662,27 @@ season,round,race,driver,team,grid,dnf_prob,dnf,status
 2026,19,Mexico City Grand Prix,gasly,alpine,9,0.12854130149284468,0,Finished
 2026,19,Mexico City Grand Prix,arvid_lindblad,rb,8,0.1099469015804421,1,Retired
 2026,19,Mexico City Grand Prix,bearman,haas,14,0.14499851834761984,1,Retired
-2026,19,Mexico City Grand Prix,bottas,cadillac,21,0.19976379126749336,1,Retired
-2026,19,Mexico City Grand Prix,stroll,aston_martin,19,0.17523596492655025,1,Retired
-2026,19,Mexico City Grand Prix,alonso,aston_martin,17,0.19781444326482067,1,Retired
+2026,19,Mexico City Grand Prix,bottas,cadillac,21,0.19976379126749333,1,Retired
+2026,19,Mexico City Grand Prix,stroll,aston_martin,19,0.1752359649265502,1,Retired
+2026,19,Mexico City Grand Prix,alonso,aston_martin,17,0.19781444326482064,1,Retired
+2026,20,Brazilian Grand Prix,norris,mclaren,1,0.08999906013012542,0,Finished
+2026,20,Brazilian Grand Prix,max_verstappen,red_bull,21,0.19609650353104327,0,Finished
+2026,20,Brazilian Grand Prix,hadjar,red_bull,5,0.1167668162910505,0,Finished
+2026,20,Brazilian Grand Prix,russell,mercedes,7,0.11369127241188128,0,Finished
+2026,20,Brazilian Grand Prix,antonelli,mercedes,2,0.10530358494389909,0,Finished
+2026,20,Brazilian Grand Prix,piastri,mclaren,10,0.1315063532833983,0,Finished
+2026,20,Brazilian Grand Prix,lawson,rb,3,0.09968323796975812,0,Finished
+2026,20,Brazilian Grand Prix,leclerc,ferrari,14,0.16378313485557228,0,Finished
+2026,20,Brazilian Grand Prix,hamilton,ferrari,20,0.19913418309542474,0,Lapped
+2026,20,Brazilian Grand Prix,hulkenberg,audi,4,0.10355457878660056,0,Lapped
+2026,20,Brazilian Grand Prix,arvid_lindblad,rb,18,0.17586136623115334,0,Lapped
+2026,20,Brazilian Grand Prix,alonso,aston_martin,8,0.16851364689901668,0,Lapped
+2026,20,Brazilian Grand Prix,colapinto,alpine,13,0.14711569215026288,0,Lapped
+2026,20,Brazilian Grand Prix,gasly,alpine,15,0.17695232803969285,0,Lapped
+2026,20,Brazilian Grand Prix,albon,williams,9,0.13038562745557655,0,Lapped
+2026,20,Brazilian Grand Prix,bortoleto,audi,19,0.2100088893438801,0,Lapped
+2026,20,Brazilian Grand Prix,bearman,haas,6,0.11648705286545524,0,Lapped
+2026,20,Brazilian Grand Prix,perez,cadillac,22,0.26370191767816054,0,Lapped
+2026,20,Brazilian Grand Prix,sainz,williams,12,0.1640569669807843,0,Lapped
+2026,20,Brazilian Grand Prix,rafael_camara,haas,11,0.15288713541228147,0,Lapped
+2026,20,Brazilian Grand Prix,stroll,aston_martin,16,0.18216163510258823,1,Retired

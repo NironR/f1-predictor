@@ -4,3 +4,7 @@ data/raw/
 data/fetch.log
 data/tyre_laps.csv
 .claude/
+.agents/
+skills-lock.json
+*.log
+data/sc_lap_table.csv

@@ -2695,3 +2695,25 @@ season,round,race,driver,team,grid,pred_rank,position,status,beat_prediction_by
 2026,19,Mexico City Grand Prix,bottas,cadillac,21,21.0,20,Retired,1.0
 2026,19,Mexico City Grand Prix,stroll,aston_martin,19,20.0,21,Retired,-1.0
 2026,19,Mexico City Grand Prix,alonso,aston_martin,17,19.0,22,Retired,-3.0
+2026,20,Brazilian Grand Prix,norris,mclaren,1,2.0,1,Finished,1.0
+2026,20,Brazilian Grand Prix,max_verstappen,red_bull,21,5.0,2,Finished,3.0
+2026,20,Brazilian Grand Prix,hadjar,red_bull,5,3.0,3,Finished,0.0
+2026,20,Brazilian Grand Prix,russell,mercedes,7,8.0,4,Finished,4.0
+2026,20,Brazilian Grand Prix,antonelli,mercedes,2,1.0,5,Finished,-4.0
+2026,20,Brazilian Grand Prix,piastri,mclaren,10,10.0,6,Finished,4.0
+2026,20,Brazilian Grand Prix,lawson,rb,3,4.0,7,Finished,-3.0
+2026,20,Brazilian Grand Prix,leclerc,ferrari,14,9.0,8,Finished,1.0
+2026,20,Brazilian Grand Prix,hamilton,ferrari,20,7.0,9,Lapped,-2.0
+2026,20,Brazilian Grand Prix,hulkenberg,audi,4,6.0,10,Lapped,-4.0
+2026,20,Brazilian Grand Prix,arvid_lindblad,rb,18,16.0,11,Lapped,5.0
+2026,20,Brazilian Grand Prix,alonso,aston_martin,8,13.0,12,Lapped,1.0
+2026,20,Brazilian Grand Prix,colapinto,alpine,13,18.0,13,Lapped,5.0
+2026,20,Brazilian Grand Prix,gasly,alpine,15,17.0,14,Lapped,3.0
+2026,20,Brazilian Grand Prix,albon,williams,9,14.0,15,Lapped,-1.0
+2026,20,Brazilian Grand Prix,bortoleto,audi,19,19.0,16,Lapped,3.0
+2026,20,Brazilian Grand Prix,bearman,haas,6,11.0,17,Lapped,-6.0
+2026,20,Brazilian Grand Prix,perez,cadillac,22,22.0,18,Lapped,4.0
+2026,20,Brazilian Grand Prix,sainz,williams,12,15.0,19,Lapped,-4.0
+2026,20,Brazilian Grand Prix,rafael_camara,haas,11,12.0,20,Lapped,-8.0
+2026,20,Brazilian Grand Prix,stroll,aston_martin,16,20.0,21,Retired,-1.0
+2026,20,Brazilian Grand Prix,bottas,cadillac,17,21.0,22,Did not start,-1.0
