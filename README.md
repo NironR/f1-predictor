@@ -28,6 +28,7 @@ python race_sim.py 2024 11 # multi-car: 1-stop vs 2-stop by expected finishing p
 python race_sim.py backtest  # ~40 min
 python assist.py 2024 6 NOR 20      # live strategy assistant: Miami 2024, Norris, after lap 20
 python assist.py 2024 6 NOR replay  # its call every 5 laps vs what Norris actually did
+python sc_calls.py                  # pit-or-stay under SC learned from teams, vs baselines
 ```
 
 ## Data sources
@@ -152,3 +153,18 @@ The ceiling is the issue: a model trained on teams' own SC decisions from per-ca
 stops made, laps left, race progress) only reaches 62%, the same as "always pit". Within one safety car,
 80% of cars make the same choice, so what drives it is race-level context (when the SC falls relative to
 everyone's pit windows, track, expected SC length), not each car's tyres.
+
+`python sc_calls.py` tries that: every safety car in dry races 2018-2026 (79 SCs, 790 top-10 decisions),
+race-level features (laps left, progress, share of the field still to stop, field tyre age, track pit
+loss, season) plus each car's state, walk-forward by season:
+
+| Always pit | Rule of thumb | Per-car model | SC-level model |
+|---|---|---|---|
+| 60% | 62% | 61% | 61% |
+
+Adding a "free stop" feature (still needs its mandatory stop and a new set would last to the end) or a
+boosted model made it worse (56-58%): 79 safety cars is too few. The "free stop" effect is real (teams pit
+74% of the time vs 50% otherwise), but most of what's learnable is each season's base rate, which drifts
+from 47% (2021) to 71% (2023). The honest conclusion: pit-or-stay under a safety car isn't predictable
+from public timing data beyond "usually pit"; it depends on things the data doesn't show (team radio,
+expected SC length, double-stacking teammates).
