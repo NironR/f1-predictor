@@ -1,0 +1,4 @@
+physics x1: window within 3 laps 30%, signed error +6 | SC calls 60% (says pit 47%, teams 68%) | score 45%
+physics x1.5: window within 3 laps 33%, signed error +3 | SC calls 58% (says pit 49%, teams 68%) | score 45%
+physics x2: window within 3 laps 43%, signed error +1 | SC calls 58% (says pit 52%, teams 68%) | score 50%
+physics x3: window within 3 laps 47%, signed error -1 | SC calls 59% (says pit 51%, teams 68%) | score 53%

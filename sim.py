@@ -6,6 +6,7 @@ Fuel burn-off and safety car lap times are the same for every plan, so they canc
 
 Usage:  python sim.py 2024 21      # strategy report for one race (pre-race information only)
         python sim.py backtest     # recommended stops / first stop lap vs what top-10 cars did
+        python sim.py pitcheck     # check the SC pit loss against places really lost under SC
 """
 import sys
 from functools import lru_cache
@@ -48,6 +49,35 @@ def pit_stops(t):
                 out.append({"season": s, "round": r, "circuit": circ, "under_sc": under_sc,
                             "loss": mine - base.median()})
     return pd.DataFrame(out)
+
+
+def queue_loss(t):
+    """Checks SC_PIT_FACTOR in the terms the multi-car sim uses: for each stop, cars that stayed out and
+    went from behind to ahead, vs cars within X s behind just before. Best-fit X per kind of stop."""
+    t = t.assign(st=t.track_status.astype("Int64").astype(str))
+    rows = []
+    for _, g in t.groupby(["season", "round"]):
+        T = g.pivot_table(index="lap", columns="code", values="session_time", aggfunc="first")
+        sc = g.groupby("lap").st.agg(lambda x: x.str.contains("4").mean() > 0.5)
+        pitted = g[g.pit_in.notna()].groupby("code").lap.apply(set)
+        for p in g[g.pit_in.notna() & (g.lap > 2)].itertuples():
+            L, end = p.lap, p.lap + 2
+            while sc.get(L, False) and sc.get(end - 1, False):
+                end += 1
+            end += sc.get(L, False)  # a lap after the restart
+            if L - 1 not in T.index or end not in T.index or pd.isna(T.loc[L - 1, p.code]) or pd.isna(T.loc[end, p.code]):
+                continue
+            stay = [c for c in T.columns if c != p.code and not pitted.get(c, set()) & set(range(L - 1, end + 1))]
+            gap0, gap1 = T.loc[L - 1, stay] - T.loc[L - 1, p.code], T.loc[end, stay] - T.loc[end, p.code]
+            ok = gap0.notna() & gap1.notna() & (gap0 > 0)
+            rows.append({"sc": bool(sc.get(L, False)), "gaps": gap0[ok].to_numpy(), "lost": int((gap1[ok] < 0).sum())})
+    d = pd.DataFrame(rows)
+    for under_sc, g in d.groupby("sc"):
+        err = {x: np.mean([abs((gaps < x).sum() - lost) for gaps, lost in zip(g.gaps, g.lost)])
+               for x in np.arange(2, 40, 0.5)}
+        x = min(err, key=err.get)
+        print(f"{'SC' if under_sc else 'green':5s} {len(g)} stops: places lost best explained by a {x:.1f}s loss "
+              f"(mean error {err[x]:.2f} places)")
 
 
 def shrunk(values, prior, m):
@@ -294,6 +324,8 @@ if __name__ == "__main__":
     data = load()
     if sys.argv[1:] == ["backtest"]:
         backtest(data)
+    elif sys.argv[1:] == ["pitcheck"]:
+        queue_loss(data["tyre_laps"])
     else:
         report(int(sys.argv[1]), int(sys.argv[2]), data)
 

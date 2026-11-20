@@ -141,5 +141,14 @@ Calibrating the assistant's own wear scale (`python assist.py tune`: chosen on 2
 
 (2023 decisions.) 3x is right for pit timing, and held out on 2024-2026 it still beats the pre-race plan
 (31% vs 26% within 3 laps). Safety car calls barely move with the wear scale and never beat "always pit",
-so that weakness isn't tyre wear: it's how the simulation values a stop under a safety car (for example,
-it pits cars that already stopped on 11-20-lap-old tyres 95% of the time; teams do 53%).
+so that weakness isn't tyre wear.
+
+Nor is it the safety car mechanics. `python sim.py pitcheck` fits the stop cost that best explains the
+places really lost, in the same queue terms the simulation uses: 13.5 s under SC (mean error 0.19 places
+over 1,114 stops) and 20.5 s under green, which is what the simulation already uses. Keeping the 3x wear
+for decisions but measured wear for simulated lap times didn't help either (58-60% SC calls).
+
+The ceiling is the issue: a model trained on teams' own SC decisions from per-car information (tyre age,
+stops made, laps left, race progress) only reaches 62%, the same as "always pit". Within one safety car,
+80% of cars make the same choice, so what drives it is race-level context (when the SC falls relative to
+everyone's pit windows, track, expected SC length), not each car's tyres.
