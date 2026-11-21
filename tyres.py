@@ -234,7 +234,7 @@ def team_wear(deg, half_life=6, past_season_weight=0.3, m=2):
 
 def team_wear_report(deg):
     tw = team_wear(deg)
-    tw.to_csv("data/team_wear.csv", index=False)
+    tw.to_csv("data/team_wear.csv", index=False, float_format="%.6g")
     test = tw[tw.season.isin(TEST_SEASONS)]
     print("\nTeam tyre wear vs field (s per lap of tyre age), walk-forward 2021-2026:")
     print(f"  spread of measured team wear: sd {test.tw.std():.4f}; forecast vs measured correlation "
@@ -249,7 +249,7 @@ if __name__ == "__main__":
     pd.set_option("display.width", 200)
     laps = clean(pd.read_csv("data/tyre_laps.csv", low_memory=False))
     deg = measure(laps)
-    deg.to_csv("data/tyre_deg.csv", index=False)
+    deg.to_csv("data/tyre_deg.csv", index=False, float_format="%.6g")
     print(f"{len(laps)} clean laps, {len(deg)} races measured")
     print("\nPer-race estimates (median, [10th-90th pct]):")
     for c in ["fuel_per_lap", *[f"deg_{c}" for c in DRY], "off_SOFT", "off_HARD", "resid_sd",
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     in_race_report(laps, deg)
     team_wear_report(deg)
     shapes = wear_shape(laps)
-    shapes.to_csv("data/tyre_shape.csv", index=False)
+    shapes.to_csv("data/tyre_shape.csv", index=False, float_format="%.6g")
     shape = shapes[shapes.season == shapes.season.max()]
     print("\nNon-linear wear on top of the linear slope, all seasons (s per lap; + = slower; blank = <100 laps):")
     print(shape.assign(age=shape.age_from.astype(str) + "-" + shape.age_to.astype(str))

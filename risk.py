@@ -112,6 +112,6 @@ if __name__ == "__main__":
     dnf = dnf_report(df)
     sc = sc_report(df)
     dnf[["season", "round", "race", "driver", "team", "grid", "logistic", "dnf", "status"]] \
-        .rename(columns={"logistic": "dnf_prob"}).to_csv("data/dnf_predictions.csv", index=False)
+        .rename(columns={"logistic": "dnf_prob"}).to_csv("data/dnf_predictions.csv", index=False, float_format="%.6g")
     sc[["season", "round", "race", "logistic", "track_sc_rate", "sc_or_red"]] \
-        .rename(columns={"logistic": "sc_or_red_prob"}).to_csv("data/sc_predictions.csv", index=False)
+        .rename(columns={"logistic": "sc_or_red_prob"}).to_csv("data/sc_predictions.csv", index=False, float_format="%.6g")

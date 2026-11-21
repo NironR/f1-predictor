@@ -127,7 +127,7 @@ if __name__ == "__main__":
 
     p["beat_prediction_by"] = p.pred_rank - p.position
     p[["season", "round", "race", "driver", "team", "grid", "pred_rank", "position", "status",
-       "beat_prediction_by"]].to_csv("data/predictions.csv", index=False)
+       "beat_prediction_by"]].to_csv("data/predictions.csv", index=False, float_format="%.6g")
     print("\nBiggest over-performers vs prediction (finished, latest season):")
     print(last.assign(beat=last.pred_rank - last.position)[last.dnf == 0]
           .nlargest(5, "beat")[["race", "driver", "grid", "pred_rank", "position"]].to_string(index=False))

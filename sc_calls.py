@@ -63,7 +63,7 @@ if __name__ == "__main__":
     from sim import load
     data = load()
     d = sc_decisions(data["tyre_laps"], data["stops"])
-    d.to_csv("data/sc_decisions.csv", index=False)
+    d.to_csv("data/sc_decisions.csv", index=False, float_format="%.6g")
     n_sc = d.groupby(["season", "round", "onset"]).ngroups
     agree = d.groupby(["season", "round", "onset"]).pitted.agg(lambda x: max(x.mean(), 1 - x.mean())).mean()
     print(f"{n_sc} safety cars, {len(d)} top-10 car decisions, {d.pitted.mean():.0%} pitted; "

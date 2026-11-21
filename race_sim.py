@@ -213,7 +213,7 @@ def backtest(data, scales=(2, 3)):
         picked.append(b[b.season == s].assign(wear_scale=w, choice=b[f"choice_{w}"], timeonly=b[f"timeonly_{w}"],
                                               replay=b[f"replay_{w}"], replay_timeonly=b[f"replay_timeonly_{w}"]))
     p = pd.concat(picked)
-    p.to_csv("data/race_sim_backtest.csv", index=False)
+    p.to_csv("data/race_sim_backtest.csv", index=False, float_format="%.6g")
     actual = p.actual.clip(upper=2)  # we choose between 1 and 2 stops; 3+ counts as "2+"
     print(f"\n{len(p)} dry races 2021-2026, stop count (1 vs 2+) matching the top-10 cars' most common:")
     print(f"  multi-car sim {np.mean(p.choice == actual):.0%}   time-only sim {np.mean(p.timeonly == actual):.0%}   "

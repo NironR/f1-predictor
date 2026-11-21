@@ -234,8 +234,8 @@ def replay_check(data, seasons=tuple(s for s in TEST_SEASONS if s >= 2023), wear
             print(f"{s} R{r}: {len(win)} pit-window checks, {len(scs)} SC calls so far", flush=True)
     w, c = pd.DataFrame(win), pd.DataFrame(scs)
     if out:
-        w.to_csv(f"{out}_window_check.csv", index=False)
-        c.to_csv(f"{out}_sc_check.csv", index=False)
+        w.to_csv(f"{out}_window_check.csv", index=False, float_format="%.6g")
+        c.to_csv(f"{out}_sc_check.csv", index=False, float_format="%.6g")
     if verbose:
         summarise(w, c, lead, near)
     if out:  # the canonical run: record headline results, pit timing held out from the 2023 tuning

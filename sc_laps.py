@@ -90,4 +90,4 @@ if __name__ == "__main__":
     print("\nWhat drives per-lap SC / red flag risk:")
     coefficients(laps, FEATURES, "sc_start", 1.0)
     p[["season", "round", "race", "lap", "logistic", "sc_start"]] \
-        .rename(columns={"logistic": "sc_start_prob"}).to_csv("data/sc_lap_predictions.csv", index=False)
+        .rename(columns={"logistic": "sc_start_prob"}).to_csv("data/sc_lap_predictions.csv", index=False, float_format="%.6g")

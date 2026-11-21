@@ -238,10 +238,11 @@ def monte_carlo(inp, n_sims=1000, seed=0):
 # ---------- data + reports ----------
 
 def cached(path, build, *sources):
-    """Read `path`, rebuilding it first if it's missing or older than any of its source files."""
+    """Read `path`, rebuilding it first if it's missing or older than any of its source files.
+    Floats are written to 6 significant figures so platform-level float noise never shows as a change."""
     p = Path(path)
     if not p.exists() or any(Path(s).stat().st_mtime > p.stat().st_mtime for s in sources):
-        build().to_csv(p, index=False)
+        build().to_csv(p, index=False, float_format="%.6g")
     return pd.read_csv(p)
 
 
@@ -333,7 +334,7 @@ def backtest(data, scales=(1, 1.5, 2, 2.5, 3, 4)):
         picked.append(rows[(s, w)].assign(wear_scale=w))
         print(f"{s}: wear scale {w}x (fit on 2019-{s - 1})")
     b = pd.concat(picked)
-    b.to_csv("data/strategy_backtest.csv", index=False)
+    b.to_csv("data/strategy_backtest.csv", index=False, float_format="%.6g")
     print(f"{len(b)} dry races 2021-2026, vs the most common strategy of the top-10 finishers:")
     print(f"  stop count right: model {np.mean(b.pred_stops == b.actual_stops):.0%}, "
           f"this track's past most common {np.mean(b.hist_stops == b.actual_stops):.0%}")
