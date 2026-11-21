@@ -50,13 +50,18 @@ python sc_calls.py                  # pit-or-stay under SC learned from teams, v
 
 `docs/index.html` shows the models race by race (2021-2026): predicted vs actual finishing order,
 safety car risk by lap, tyre wear (pre-race estimate vs measured, and each team vs the field), and the
-strategy calls vs what teams did. No dependencies; rebuild its data after re-running the models with:
+strategy calls vs what teams did. It is a static page: `docs/render.js` builds the HTML for both the live
+page (`docs/app.js`) and a build-time prerender (`docs/prerender.mjs`), so the page reads without JavaScript
+too. The WebGL grounds fall back to still CSS without WebGL and under reduced motion. Rebuild its data after
+re-running the models with:
 
 ```bash
-python build_site.py   # -> docs/data.js
+python build_site.py   # -> docs/data.js, then prerenders docs/index.html if Node is installed
 ```
 
-To view it locally: `python -m http.server 8765 --directory docs`, then open http://localhost:8765.
+To view it locally: `python -m http.server 8765 --directory docs`, then open http://localhost:8765
+(on Windows, if the page stays empty, Python is serving `.js` as text/plain: fix the registry's
+`.js` Content Type or use any other static server).
 
 ## Data sources
 

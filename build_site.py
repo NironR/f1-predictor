@@ -3,6 +3,8 @@
 Usage:  python build_site.py
 """
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -46,7 +48,7 @@ def main():
     out = []
     for (s, r), g in races[races.season.isin(SEASONS)].groupby(["season", "round"]):
         race = {"season": int(s), "round": int(r), "name": g.race.iat[0], "circuit": g.circuit.iat[0],
-                "laps": int(g.laps.max())}
+                "laps": int(g.laps.max()), "date": str(g.date.iat[0])}
         p = pred[(pred.season == s) & (pred["round"] == r)]
         race["finish"] = [{"code": names.get(x.driver, (x.driver[:3].upper(), x.driver))[0],
                            "name": names.get(x.driver, ("", x.driver.replace("_", " ").title()))[1],
@@ -82,10 +84,15 @@ def main():
     # Headline results, written by model.py / sc_laps.py / tyres.py / assist.py / sc_calls.py
     # (all walk-forward or held-out; see README).
     summary = json.loads(Path("data/metrics.json").read_text())
+    summary["data"] = {"laps": len(pd.read_csv("data/tyre_laps.csv", usecols=["lap"]))}
     Path("docs").mkdir(exist_ok=True)
     Path("docs/data.js").write_text("window.F1 = " + json.dumps({"races": out, "summary": summary},
                                                                   separators=(",", ":")) + ";\n", encoding="utf-8")
     print(f"wrote docs/data.js: {len(out)} races, {Path('docs/data.js').stat().st_size // 1024} KB")
+    if shutil.which("node"):  # bake the latest race into index.html, so it reads without scripts too
+        subprocess.run(["node", "docs/prerender.mjs"], check=True)
+    else:
+        print("node not found: docs/index.html keeps its last prerendered race")
 
 
 if __name__ == "__main__":

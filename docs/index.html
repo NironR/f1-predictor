@@ -1,474 +1,473 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-type="software" data-radius="sharp" data-ground="sand" data-buttons="tonal" data-motion>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>F1 Race Predictor</title>
-<meta name="description" content="Predicted vs actual F1 results, race by race: finishing order, safety car risk, tyre wear and strategy.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>F1 Race Predictor: predicting every Formula 1 race for fans</title>
+<meta name="description" content="Open-source models that forecast finishing order, safety cars, tyre wear and pit stops, each scored on races they never saw.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="F1 Race Predictor: predicting every Formula 1 race for fans">
+<meta property="og:description" content="Finishing order, safety cars, tyre wear and pit stops, predicted before each race and checked against the result.">
+<meta property="og:image" content="https://nironr.github.io/f1-predictor/share.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#121212">
+<!-- <link rel="canonical" href="https://nironr.github.io/f1-predictor/"> -->
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
 <style>
-  :root {
-    color-scheme: light;
-    --surface-0: #f4f3f0;
-    --surface-1: #fcfcfb;
-    --border: #e2e0da;
-    --grid: #ebe9e4;
-    --text-primary: #0b0b0b;
-    --text-secondary: #52514e;
-    --text-muted: #77756f;
-    --series-1: #2a78d6;
-    --series-2: #eb6834;
-    --neutral-mark: #a9a7a0;
-    --better: #2a78d6;
-    --worse: #e34948;
-    --seq: #2a78d6;
-    --band: #efede8;
-    --good: #0ca30c;
-    --critical: #d03b3b;
+:root {
+  --p-bg: #121212; --p-surface: #1c1c1c; --p-ink: #f2f2f0; --p-muted: #a3a3a0;
+  --p-accent: #e10600; --p-accent-ink: #ffffff; --p-action: #e10600; --p-action-ink: #ffffff;
+  --p-inv-bg: #f2f2f0; --p-inv-surface: #e0e0de; --p-inv-ink: #121212; --p-inv-muted: #5d5d5c;
+  --p-inv-accent: #e10600; --p-inv-accent-ink: #ffffff; --p-inv-action: #e10600; --p-inv-action-ink: #ffffff;
+  --font-display: "Host Grotesk", system-ui, sans-serif;
+  --font-text: "Host Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 500;
+  --display-tracking: -0.035em;
+  --display-tracking-xl: -0.04em;
+}
+</style>
+<link rel="stylesheet" href="assets/ui/base.css">
+<link rel="stylesheet" href="assets/ui/window/fragment.css">
+<link rel="stylesheet" href="assets/diagrams/diagram.css">
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/word-highlight/moment.js">
+<!-- page CSS: only inside the visuals (the race windows and the four model fragments), one --p-h for the card group -->
+<style>
+  #models .panel { --p-h: 336px; }
+  @media (min-width: 1024px) and (max-width: 1279px) { #models .panel { --p-h: 220px; } }
+  @media (max-width: 639px) { #models .panel { --p-h: 136px; } #models-h .muted { display: none; } }
+  /* the results table keeps its three columns on a tablet, so the section stays one screen */
+  @media (min-width: 640px) and (max-width: 1023px) { #results .rp-table__row { grid-template-columns: repeat(3, minmax(0, 1fr)); } #results .rp-table__row > * { grid-column: auto; padding-block: var(--s-5); } }
+  @media (min-width: 820px) and (max-width: 1023px) { #results .rp-table__row > * { padding-block: var(--s-6) var(--s-7); } }
+
+  /* shared inside every drawn window */
+  .rp-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .rp-btn { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; text-align: inherit; cursor: pointer; }
+  .rp-head { display: flex; align-items: baseline; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--u-line); font-size: 13px; }
+  .rp-head b { font-weight: 500; color: var(--u-ink); }
+  .rp-head span { color: var(--u-muted); }
+  .rp-head .rp-sp { flex: 1; }
+  .rp-empty { padding: 20px 16px; font-size: 13px; color: var(--u-muted); }
+
+  /* hero window: the latest race, recent races beside the top of its result */
+  .rp-win { width: 100%; font-size: 13px; }
+  .rp-win__body { display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+  .rp-recent { border-right: 1px solid var(--u-line); padding: 8px; display: grid; gap: 2px; align-content: start; }
+  .rp-recent p { margin: 0; padding: 8px 10px; border-radius: var(--u-r3); color: var(--u-text-2); display: grid; gap: 2px; }
+  .rp-recent p.is-on { background: var(--u-fill-2); color: var(--u-ink); }
+  .rp-recent small { color: var(--u-muted); font-size: 12px; }
+  .rp-top { padding: 4px 16px 12px; }
+  .rp-top__row { display: grid; grid-template-columns: 36px minmax(0, 1fr) 72px 84px 56px; align-items: center; height: 28px; border-bottom: 1px solid var(--u-line); }
+  .rp-top__row--head { color: var(--u-muted); font-size: 12px; }
+  .rp-top__row > :nth-child(n+3) { text-align: right; }
+  .rp-up { color: var(--u-ink); } .rp-down { color: var(--u-muted); }
+  .rp-mark { color: var(--accent); }
+  .rp-gain { display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; }
+  .rp-gain svg { width: 24px; height: 6px; flex: none; }
+  @media (max-width: 639px) { .rp-win__body { grid-template-columns: minmax(0, 1fr); } .rp-recent { display: none; } .rp-top__row { grid-template-columns: 30px minmax(0, 1fr) 64px 48px; } .rp-top__row > :nth-child(3) { display: none; } }
+
+  /* the app window: races beside the open race (sections-library app-frame) */
+  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); }
+  .app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  .app > .app__pane + .app__pane { border-left: 1px solid var(--u-line); }
+  .app > .app__pane > .ui-panel { width: 100%; border: 0; border-radius: 0; box-shadow: none; }
+  .app > .app__pane::after { content: ""; position: absolute; inset: auto 0 0 0; height: 64px; background: linear-gradient(transparent, var(--u-bg)); pointer-events: none; }
+  @media (min-width: 1024px) and (max-width: 1279px) { .app.ui { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); } }
+  @media (max-width: 1023px) {
+    .app.ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .app > .app__pane--list { max-height: 252px; }
+    .app > .app__pane--list::after { display: none; }
+    .app .ui-win__side { display: none; }
+    .app .ui-win__body { grid-template-columns: minmax(0, 1fr); }
+    .app > .app__pane + .app__pane { border-left: 0; border-top: 1px solid var(--u-line); }
   }
-  @media (prefers-color-scheme: dark) {
-    :root:where(:not([data-theme="light"])) {
-      color-scheme: dark;
-      --surface-0: #121211;
-      --surface-1: #1a1a19;
-      --border: #33332f;
-      --grid: #2a2a27;
-      --text-primary: #ffffff;
-      --text-secondary: #c3c2b7;
-      --text-muted: #96958c;
-      --series-1: #3987e5;
-      --series-2: #d95926;
-      --neutral-mark: #6f6e68;
-      --better: #3987e5;
-      --worse: #e66767;
-      --seq: #3987e5;
-      --band: #262624;
-    }
+  @media (max-width: 639px) {
+    .app.ui { grid-template-rows: minmax(0, 1fr); }
+    .app > .app__pane--list { display: none; }
+    .app > .app__pane + .app__pane { border-top: 0; }
   }
-  :root[data-theme="dark"] {
-    color-scheme: dark;
-    --surface-0: #121211;
-    --surface-1: #1a1a19;
-    --border: #33332f;
-    --grid: #2a2a27;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #96958c;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --neutral-mark: #6f6e68;
-    --better: #3987e5;
-    --worse: #e66767;
-    --seq: #3987e5;
-    --band: #262624;
+  .app .ui-win__nav { width: 100%; }
+  .app .ui-win__row { cursor: pointer; }
+  .app .ui-win__row[aria-pressed="true"] { background: var(--u-fill-2); }
+  .app .ui-win__row:focus-visible, .app .ui-win__nav:focus-visible, .rp-season:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .rp-seasons { display: none; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--u-line); flex-wrap: wrap; }
+  .rp-season { font: 500 13px/1 var(--font-text); color: var(--u-text-2); background: var(--u-fill); border: 1px solid var(--u-border); border-radius: var(--u-r3); min-height: 36px; padding: 0 12px; cursor: pointer; }
+  .rp-season[aria-pressed="true"] { color: var(--u-ink); background: var(--u-fill-3); }
+  @media (max-width: 639px) { .rp-seasons { display: flex; } }
+
+  /* the open race: grid, prediction and result for every driver */
+  .rp-open__sum { display: flex; gap: 20px; padding: 10px 16px; border-bottom: 1px solid var(--u-line); font-size: 12px; color: var(--u-muted); flex-wrap: wrap; }
+  .rp-open__sum b { color: var(--u-ink); font-weight: 500; }
+  .rp-key { display: inline-flex; align-items: center; gap: 6px; }
+  .rp-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--u-ink); }
+  .rp-dot--ring { background: transparent; box-shadow: inset 0 0 0 2px var(--u-muted); }
+  .rp-dot--grid { width: 2px; height: 10px; border-radius: 1px; background: var(--u-muted); }
+  .rp-rows { padding: 4px 16px 24px; }
+  .rp-row { display: grid; grid-template-columns: 40px 112px minmax(0, 1fr) 44px; align-items: center; height: 26px; font-size: 13px; }
+  .rp-row__pos { color: var(--u-muted); }
+  .rp-row__name { white-space: nowrap; overflow: hidden; text-overflow: clip; }
+  .rp-row__d { text-align: right; }
+  .rp-track { position: relative; height: 100%; }
+  .rp-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--u-line); }
+  .rp-track i { position: absolute; top: 50%; transform: translate(-50%, -50%); }
+  .rp-track .rp-span { height: 2px; background: var(--u-line-2); transform: translateY(-50%); }
+  .rp-track .rp-g { width: 2px; height: 10px; border-radius: 1px; background: var(--u-muted); }
+  .rp-track .rp-p { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--u-muted); background: var(--u-bg); }
+  .rp-track .rp-a { width: 9px; height: 9px; border-radius: 50%; background: var(--u-ink); }
+  .rp-row.is-gain .rp-a { background: var(--accent); }
+  @media (max-width: 639px) { .rp-row { grid-template-columns: 32px 44px minmax(0, 1fr) 36px; } .rp-row__full { display: none; } }
+  @media (min-width: 640px) { .rp-row__short { display: none; } }
+
+  /* the four model fragments */
+  .rp-frag { width: 100%; font-size: 13px; }
+  .rp-bars { display: flex; align-items: flex-end; gap: 2px; height: 150px; padding: 16px 16px 0; }
+  .rp-bars i { flex: 1 1 0; min-width: 1px; background: var(--u-line-2); border-radius: 1px 1px 0 0; }
+  .rp-bars i.is-sc { background: var(--accent); }
+  .rp-bars i.is-out { background: transparent; box-shadow: inset 0 -1px 0 var(--u-line-2); }
+  .rp-axis { display: flex; justify-content: space-between; padding: 6px 16px 12px; color: var(--u-muted); font-size: 12px; }
+  .rp-note { padding: 0 16px 14px; color: var(--u-text-2); }
+  .rp-lines { padding: 6px 16px 16px; display: grid; gap: 4px; }
+  .rp-line { display: grid; grid-template-columns: 100px minmax(0, 1fr) 72px; align-items: center; gap: 10px; height: 26px; }
+  .rp-line__v { text-align: right; }
+  .rp-scale { position: relative; height: 100%; }
+  .rp-scale::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--u-line); }
+  .rp-scale .rp-zero { position: absolute; top: 4px; bottom: 4px; width: 1px; background: var(--u-line-2); }
+  .rp-scale i { position: absolute; top: 50%; transform: translate(-50%, -50%); }
+  .rp-scale .rp-se { height: 2px; background: var(--u-ink); transform: translateY(-50%); }
+  .rp-scale .rp-p { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--u-muted); }
+  .rp-scale .rp-a { width: 10px; height: 10px; border-radius: 50%; background: var(--u-ink); }
+  .rp-div { position: relative; height: 12px; }
+  .rp-div::before { content: ""; position: absolute; left: 50%; top: -6px; bottom: -6px; width: 1px; background: var(--u-line-2); }
+  .rp-div i { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: var(--u-text-2); }
+  .rp-div i.is-top { background: var(--accent); }
+  .rp-pits .rp-line { grid-template-columns: 48px minmax(0, 1fr) 96px; }
+  .rp-pits .rp-a { background: var(--u-ink); }
+  .rp-pits .rp-p { box-shadow: inset 0 0 0 2px var(--accent); }
+  @media (max-width: 639px) { .rp-line { grid-template-columns: 76px minmax(0, 1fr) 60px; } .rp-bars { height: 120px; } }
+
+  /* the results table (comparison-table): rows closed by one rule */
+  .rp-table { margin-top: var(--s-7); }
+  .rp-table__row { align-items: baseline; }
+  .rp-table__row > * { padding-block: var(--s-2); border-bottom: 1px solid var(--line); align-self: stretch; }
+  .rp-table__more { margin-top: var(--s-7); }
+  .rp-table__row--head { color: var(--muted); font-size: var(--t-label); font-weight: 500; }
+  .rp-table__v { font: var(--display-weight) var(--t-card)/1.3 var(--font-display); }
+  .closing .close__word { font-size: clamp(24px, 9vw, 136px); line-height: 1.08; white-space: nowrap; }
+  /* the method diagram's frame fills the screen beside its text; a phone keeps the kit's square */
+  @media (min-width: 1024px) { #method .frame--split { --ratio: 110%; } }
+  /* the hero window's lit ground: its controls focus in the ground's own ink, which reads on the mesh */
+  .hero--centred .hero__window { --action: #2a2622; }
+  /* the CSS grounds hold a section at min(88svh, 860px) and let it go under 768px: hold it to its screens instead,
+     and keep the statement on its top line like every other section */
+  #statement, #results { --g-screen: calc(var(--h, 1) * 100svh); }
+  #statement, #results { align-content: start; }
+  @media (max-width: 639px) {
+    #statement, #results { --g-screen: 100lvh; }
+    .hero--centred .pill { display: none; }
+    #results .rp-table__v small { display: none; }
+    /* one phone screen: the heading, the line and the diagram (the facts are on the diagram, the notes in the footer) */
+    #method .rp-facts, #method .rp-method-link, #results .rp-table__more { display: none; }
+    #method .frame--split { --ratio: 83%; }
+    /* a row on a phone: what is predicted on its own line, then the model's figure and the baseline's
+       on the phone grid's two columns */
+    #results .rp-table__row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #results .rp-table__row > [role]:first-child { grid-column: 1 / -1; }
+    #results .rp-table__row > [role]:not(:first-child) { grid-column: auto; }
+    #results .rp-table__v { font: 400 16px/1.5 var(--font-mono); }
+    #results .rp-table__row > [role]:nth-child(3) { color: var(--muted); }
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--surface-0); color: var(--text-primary);
-    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  }
-  main { max-width: 1080px; margin: 0 auto; padding: 28px 16px 64px; }
-  header { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
-  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
-  h2 { font-size: 17px; margin: 0 0 2px; }
-  .lede { color: var(--text-secondary); margin: 0; max-width: 680px; }
-  a { color: var(--series-1); }
-  button, select {
-    font: inherit; color: var(--text-primary); background: var(--surface-1);
-    border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer;
-  }
-  button:focus-visible, select:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 24px 0; }
-  .tile, .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; }
-  .tile { padding: 14px 16px; }
-  .tile .label { color: var(--text-secondary); font-size: 13px; }
-  .tile .value { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; margin: 2px 0; }
-  .tile .note { color: var(--text-muted); font-size: 12.5px; }
-  .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 8px 0 16px;
-             position: sticky; top: 0; padding: 10px 0; background: var(--surface-0); z-index: 2; }
-  .filters label { color: var(--text-secondary); font-size: 13px; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 820px) { .grid2 { grid-template-columns: 1fr; } }
-  .card { padding: 16px; margin-bottom: 16px; min-width: 0; }
-  .card .sub { color: var(--text-secondary); font-size: 13px; margin: 0 0 10px; }
-  .card-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-secondary); margin: 4px 0 8px; }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .legend svg { width: 14px; height: 14px; flex: none; }
-  .callout { font-size: 13.5px; color: var(--text-secondary); margin-top: 8px; }
-  svg { display: block; width: 100%; overflow: visible; }
-  svg text { font: 11.5px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: var(--text-secondary); }
-  svg .strong { fill: var(--text-primary); font-weight: 600; }
-  svg .muted { fill: var(--text-muted); }
-  .tip {
-    position: fixed; pointer-events: none; z-index: 10; background: var(--surface-1); color: var(--text-primary);
-    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px;
-    box-shadow: 0 4px 16px rgba(0,0,0,.12); max-width: 260px; display: none;
-  }
-  .tip b { font-weight: 650; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--grid); }
-  th { color: var(--text-secondary); font-weight: 600; }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .verdict { display: grid; gap: 6px; margin: 6px 0 12px; font-size: 14px; }
-  .verdict div { display: flex; gap: 8px; align-items: center; }
-  .icon { font-weight: 700; width: 1.2em; text-align: center; }
-  .ok { color: var(--good); } .miss { color: var(--critical); }
-  .empty { color: var(--text-muted); font-size: 13.5px; padding: 18px 0; }
-  footer { color: var(--text-muted); font-size: 13px; margin-top: 24px; }
-  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  /* the method diagram: tall beside its text on a desktop, shorter where a tablet stacks them */
+  /* a tablet stacks the four cards and the method diagram under its text: panels and frame sized so the
+     stack fills its screens, never leaving a hole between the two groups */
+  @media (min-width: 640px) and (max-width: 819px) { #method .frame--split { --ratio: 72%; } #models .panel { --p-h: 470px; } }
+  @media (min-width: 820px) and (max-width: 1023px) { #method .frame--split { --ratio: 85%; } #models .panel { --p-h: 620px; } }
+  /* the hero window fades over its last 18%: its pause button sits above the fade, so it stays readable */
+  .hero--centred .hero__window > .loop-pause { bottom: calc(18% + 12px); }
+  .rp-table__v small { display: block; font: 400 var(--t-small)/1.5 var(--font-text); color: var(--muted); }
+  @media (max-width: 639px) { .rp-table__row { row-gap: var(--s-1); padding-block: var(--s-4); } .rp-table__row > * { border-bottom: 0; padding-block: 0; } .rp-table__row--head { display: none; } .rp-table__row > [role="cell"]:first-child { font-weight: 500; } }
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <div>
-      <h1>F1 Race Predictor</h1>
-      <p class="lede">Machine-learning models for finishing order, safety cars, tyre wear and race strategy,
-        each tested on races it never saw. Pick a race to compare the predictions with what really happened.</p>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <a href="https://github.com/NironR/f1-predictor">Code on GitHub</a>
-      <button id="theme" type="button" aria-label="Toggle dark mode">Dark mode</button>
-    </div>
-  </header>
-
-  <section class="tiles" id="tiles" aria-label="Headline results"></section>
-
-  <div class="filters" role="group" aria-label="Choose a race">
-    <label for="season">Season</label><select id="season"></select>
-    <label for="race">Race</label><select id="race"></select>
-  </div>
-
-  <section class="card" aria-labelledby="h-finish">
-    <div class="card-head">
-      <div>
-        <h2 id="h-finish">Finishing order: predicted vs actual</h2>
-        <p class="sub">Predicted from grid, qualifying gap, recent form and track history, before the start.</p>
+<!-- type: software (site-kind software): open-source race prediction models for Formula 1, with a race-by-race explorer
+     deal: hero centred, nav-mega, close close-word, footer footer-statement, rhythm space, buttons tonal, mark dots,
+           palette the client's own (brand): the near-black ground and off-white ink of his portfolio, F1 timing red as the
+           one accent; type host (Host Grotesk + JetBrains Mono); radius sharp (a developer tool); ground sand;
+           section grounds statement bg-dusk, results bg-band; effect gradient-mesh in the hero window; card ground
+           painterly-landscape (still); moment word-highlight in #statement (liquid-type dealt beside it is not built: the
+           page holds seven sections, so one moment)
+     plan: hero (1) the latest race in the product window over the effect ·
+           #races app-frame (1) every race since 2021, the list beside the open race ·
+           #models features-2x2 (2, .g2) four model fragments for the race picked above ·
+           #statement word-highlight (1) how every number is tested ·
+           #method split-text-left (1) the four data sources into the pipeline, a bowtie diagram ·
+           #results comparison-table (1) each model against its baseline, the safety car call admitted ·
+           footer.closing close-word + footer-statement (1)
+     motion: hero entrance (the name, then what to do); word-highlight in #statement (the testing rule read word by word);
+             diagram pulses in #method (data running into the pipeline); hover and press layer; race picks swap the window -->
+<header class="nav">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Skip to content</a>
+    <a class="nav__logo" href="#top"><span class="mark" data-mark="dots" aria-hidden="true"></span>F1 Race Predictor</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item"><a class="nav__link" href="#races">Races</a></div>
+      <div class="nav__item">
+        <a class="nav__link" href="#models">Models <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <div class="nav__menu">
+          <div class="wrap grid">
+            <div class="menu-col span-3">
+              <p class="t-label">Before the race</p>
+              <a href="#races">Finishing order<span>Grid, form and track history</span></a>
+              <a href="#models">Safety car risk<span>A score for every lap</span></a>
+            </div>
+            <div class="menu-col span-3">
+              <p class="t-label">During the race</p>
+              <a href="#models">Tyre wear<span>Measured from the laps run</span></a>
+              <a href="#models">Pit window<span>The best lap to stop</span></a>
+            </div>
+            <div class="menu-col span-3">
+              <p class="t-label">How it is built</p>
+              <a href="#method">Data sources<span>Four public feeds</span></a>
+              <a href="#results">Results<span>Every model against a baseline</span></a>
+            </div>
+          </div>
+        </div>
       </div>
-      <button id="finish-toggle" type="button" aria-pressed="false">Table view</button>
+      <div class="nav__item"><a class="nav__link" href="#method">Method</a></div>
+      <div class="nav__item"><a class="nav__link" href="#results">Results</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="#races">See race predictions</a>
     </div>
-    <div class="legend" aria-hidden="true">
-      <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--text-secondary)" stroke-width="2"/></svg>Predicted</span>
-      <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--better)"/></svg>Finished better than predicted</span>
-      <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--worse)"/></svg>Finished worse</span>
-      <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--neutral-mark)"/></svg>As predicted</span>
-    </div>
-    <div id="finish"></div>
-    <p class="callout" id="finish-callout"></p>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero hero--centred" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text">
+      <div class="hero__c">
+        <p class="pill"><span data-rp="pill"><!--rp:pill-->134 races scored<!--/rp:pill--></span><span class="muted">Checked after each race</span></p>
+        <h1 id="hero-h" aria-label="Predicting every Formula 1 race">Predicting every Formula 1 race</h1>
+        <p class="hero__lead">Built for fans, the F1 Race Predictor models finishing order, safety cars, tyre wear and pit stops before every Grand Prix, then checks each call against what really happened, across 134 races.</p>
+        <div class="btn-row"><a class="btn btn--primary" href="#races">See race predictions</a><a class="btn btn--secondary" href="https://github.com/NironR/f1-predictor">Read the code</a></div>
+      </div>
+      <div class="hero__window" data-ui-pause-host data-fx="gradient-mesh" data-fx-seed="11" data-fx-palette='{"bg":"#e6dccb","surface":"#efe8db","ink":"#2a2622","accent":"#b8452f"}' role="img" aria-label="The latest race: Brazilian Grand Prix 2026, predicted order beside the result" data-rp="hero-label">
+        <div class="ly-piece" aria-hidden="true">
+          <div class="ui ui-panel rp-win">
+            <div class="rp-head"><b data-rp="hero-race"><!--rp:hero-race-->Brazilian Grand Prix 2026<!--/rp:hero-race--></b><span class="rp-sp"></span><span>Predicted before the start · result</span></div>
+            <div class="rp-win__body">
+              <div class="rp-recent" data-rp="hero-recent"><!--rp:hero-recent--><p class="is-on">Brazilian GP<small>Round 20 · 8 Nov</small></p><p>Mexico City GP<small>Round 19 · 1 Nov</small></p><p>United States GP<small>Round 18 · 25 Oct</small></p><p>Singapore GP<small>Round 17 · 11 Oct</small></p><!--/rp:hero-recent--></div>
+              <div class="rp-top" data-rp="hero-top"><!--rp:hero-top--><div class="rp-top__row rp-top__row--head"><span>Pos</span><span>Driver</span><span>Grid</span><span>Predicted</span><span>Beat by</span></div><div class="rp-top__row rp-mono"><span>1</span><span>Norris</span><span>1</span><span>2</span><span class="rp-gain rp-up">+1<svg viewBox="0 0 24 6" aria-hidden="true"><rect x="12" y="0" width="3" height="6" rx="1" fill="currentColor"/></svg></span></div><div class="rp-top__row rp-mono"><span>2</span><span>Verstappen</span><span>Pits</span><span>5</span><span class="rp-gain rp-up rp-mark">+3<svg viewBox="0 0 24 6" aria-hidden="true"><rect x="12" y="0" width="9" height="6" rx="1" fill="currentColor"/></svg></span></div><div class="rp-top__row rp-mono"><span>3</span><span>Hadjar</span><span>5</span><span>3</span><span class="rp-gain rp-up">0<svg viewBox="0 0 24 6" aria-hidden="true"><rect x="12" y="0" width="1" height="6" rx="1" fill="currentColor"/></svg></span></div><div class="rp-top__row rp-mono"><span>4</span><span>Russell</span><span>7</span><span>8</span><span class="rp-gain rp-up rp-mark">+4<svg viewBox="0 0 24 6" aria-hidden="true"><rect x="12" y="0" width="12" height="6" rx="1" fill="currentColor"/></svg></span></div><div class="rp-top__row rp-mono"><span>5</span><span>Antonelli</span><span>2</span><span>1</span><span class="rp-gain rp-down">−4<svg viewBox="0 0 24 6" aria-hidden="true"><rect x="0" y="0" width="12" height="6" rx="1" fill="currentColor"/></svg></span></div><div class="rp-top__row rp-mono"><span>6</span><span>Piastri</span><span>10</span><span>10</span><span class="rp-gain rp-up rp-mark">+4<svg viewBox="0 0 24 6" aria-hidden="true"><rect x="12" y="0" width="12" height="6" rx="1" fill="currentColor"/></svg></span></div><div class="rp-top__row rp-mono"><span>7</span><span>Lawson</span><span>3</span><span>4</span><span class="rp-gain rp-down">−3<svg viewBox="0 0 24 6" aria-hidden="true"><rect x="3" y="0" width="9" height="6" rx="1" fill="currentColor"/></svg></span></div><div class="rp-top__row rp-mono"><span>8</span><span>Leclerc</span><span>14</span><span>9</span><span class="rp-gain rp-up">+1<svg viewBox="0 0 24 6" aria-hidden="true"><rect x="12" y="0" width="3" height="6" rx="1" fill="currentColor"/></svg></span></div><!--/rp:hero-top--></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
   </section>
 
-  <div class="grid2">
-    <section class="card" aria-labelledby="h-sc">
-      <h2 id="h-sc">Safety car risk, lap by lap</h2>
-      <p class="sub">Chance a safety car or red flag starts on each lap, given the race so far.</p>
-      <div class="legend" aria-hidden="true">
-        <span><svg width="14" height="14"><rect x="3" y="2" width="8" height="11" rx="2" fill="var(--seq)"/></svg>Predicted risk</span>
-        <span><svg width="14" height="14"><path d="M7 2 L12 11 L2 11 Z" fill="var(--series-2)"/></svg>Safety car started</span>
-        <span><svg width="14" height="14"><rect x="1" y="2" width="12" height="11" fill="var(--band)" stroke="var(--border)"/></svg>Neutralised</span>
+  <section class="section" id="races" aria-labelledby="races-h">
+    <div class="wrap">
+      <div class="grid">
+        <h2 class="span-5" id="races-h">Following every race since 2021</h2>
+        <p class="span-6 start-7 t-lead muted">Pick a season, then a race. We show where each driver started, where the model placed them before the lights went out, and where they finished. <a class="link" href="#results">See the scores</a></p>
       </div>
-      <div id="sc"></div>
-      <p class="callout" id="sc-callout"></p>
-    </section>
-
-    <section class="card" aria-labelledby="h-tyres">
-      <h2 id="h-tyres">Tyre wear</h2>
-      <p class="sub">Seconds lost per lap of tyre age: the pre-race estimate from track history vs what the race showed.</p>
-      <div class="legend" aria-hidden="true">
-        <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--text-secondary)" stroke-width="2"/></svg>Pre-race estimate</span>
-        <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--series-1)"/></svg>Measured in the race (±1 s.e.)</span>
+      <div class="ui app fill" role="region" aria-label="Race explorer">
+        <div class="app__pane app__pane--list">
+          <div class="ui ui-panel ui-win" data-ui="window">
+            <div class="ui-win__bar">
+              <span class="ui-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="ui-win__crumb">Races <i>/</i> <b data-rp="crumb"><!--rp:crumb-->2026<!--/rp:crumb--></b></span>
+              <span class="ui-spacer"></span>
+            </div>
+            <div class="rp-seasons" data-rp="seasons-phone" aria-label="Seasons"><!--rp:seasons-phone--><button class="rp-season" type="button" data-season="2026" aria-pressed="true">2026</button><button class="rp-season" type="button" data-season="2025" aria-pressed="false">2025</button><button class="rp-season" type="button" data-season="2024" aria-pressed="false">2024</button><button class="rp-season" type="button" data-season="2023" aria-pressed="false">2023</button><button class="rp-season" type="button" data-season="2022" aria-pressed="false">2022</button><button class="rp-season" type="button" data-season="2021" aria-pressed="false">2021</button><!--/rp:seasons-phone--></div>
+            <div class="ui-win__body">
+              <nav class="ui-win__side" aria-label="Seasons" data-rp="seasons"><!--rp:seasons--><span class="ui-win__label">Seasons</span><button class="rp-btn ui-win__nav is-on" type="button" data-season="2026" aria-pressed="true">2026<em>20</em></button><button class="rp-btn ui-win__nav" type="button" data-season="2025" aria-pressed="false">2025<em>24</em></button><button class="rp-btn ui-win__nav" type="button" data-season="2024" aria-pressed="false">2024<em>24</em></button><button class="rp-btn ui-win__nav" type="button" data-season="2023" aria-pressed="false">2023<em>22</em></button><button class="rp-btn ui-win__nav" type="button" data-season="2022" aria-pressed="false">2022<em>22</em></button><button class="rp-btn ui-win__nav" type="button" data-season="2021" aria-pressed="false">2021<em>22</em></button><!--/rp:seasons--></nav>
+              <div class="ui-win__main">
+                <div class="ui-win__cols" aria-hidden="true"><span>Round</span><span>Race</span><span>Against the grid</span><span>Date</span></div>
+                <ul class="ui-win__rows" data-rp="rows" aria-label="Races"><!--rp:rows--><li class="ui-win__row" data-row data-key="2026-20" role="button" tabindex="0" aria-pressed="true"><span class="ui-avatar" data-tone="1">20</span><span class="ui-win__who">Brazilian GP</span><span class="ui-win__sub rp-mono">Model 0.84 · grid 0.42</span><span class="ui-win__st is-done" data-st>Beat the grid</span><span class="ui-win__age">8 Nov</span></li><li class="ui-win__row" data-row data-key="2026-19" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="5">19</span><span class="ui-win__who">Mexico City GP</span><span class="ui-win__sub rp-mono">Model 0.75 · grid 0.63</span><span class="ui-win__st is-done" data-st>Beat the grid</span><span class="ui-win__age">1 Nov</span></li><li class="ui-win__row" data-row data-key="2026-18" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="4">18</span><span class="ui-win__who">United States GP</span><span class="ui-win__sub rp-mono">Model 0.89 · grid 0.86</span><span class="ui-win__st is-done" data-st>Beat the grid</span><span class="ui-win__age">25 Oct</span></li><li class="ui-win__row" data-row data-key="2026-17" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="3">17</span><span class="ui-win__who">Singapore GP</span><span class="ui-win__sub rp-mono">Model 0.90 · grid 0.75</span><span class="ui-win__st is-done" data-st>Beat the grid</span><span class="ui-win__age">11 Oct</span></li><li class="ui-win__row" data-row data-key="2026-16" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="2">16</span><span class="ui-win__who">Bahrain GP in Malaysia</span><span class="ui-win__sub rp-mono">Model 0.74 · grid 0.65</span><span class="ui-win__st is-done" data-st>Beat the grid</span><span class="ui-win__age">4 Oct</span></li><li class="ui-win__row" data-row data-key="2026-15" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="1">15</span><span class="ui-win__who">Azerbaijan GP</span><span class="ui-win__sub rp-mono">Model 0.57 · grid 0.49</span><span class="ui-win__st is-done" data-st>Beat the grid</span><span class="ui-win__age">26 Sep</span></li><li class="ui-win__row" data-row data-key="2026-14" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="5">14</span><span class="ui-win__who">Spanish GP</span><span class="ui-win__sub rp-mono">Model 0.72 · grid 0.78</span><span class="ui-win__st is-you" data-st>Behind the grid</span><span class="ui-win__age">13 Sep</span></li><li class="ui-win__row" data-row data-key="2026-13" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="4">13</span><span class="ui-win__who">Italian GP</span><span class="ui-win__sub rp-mono">Model 0.68 · grid 0.50</span><span class="ui-win__st is-done" data-st>Beat the grid</span><span class="ui-win__age">6 Sep</span></li><li class="ui-win__row" data-row data-key="2026-12" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="3">12</span><span class="ui-win__who">Dutch GP</span><span class="ui-win__sub rp-mono">Model 0.72 · grid 0.75</span><span class="ui-win__st is-you" data-st>Behind the grid</span><span class="ui-win__age">23 Aug</span></li><li class="ui-win__row" data-row data-key="2026-11" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="2">11</span><span class="ui-win__who">Hungarian GP</span><span class="ui-win__sub rp-mono">Model 0.70 · grid 0.77</span><span class="ui-win__st is-you" data-st>Behind the grid</span><span class="ui-win__age">26 Jul</span></li><li class="ui-win__row" data-row data-key="2026-10" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="1">10</span><span class="ui-win__who">Belgian GP</span><span class="ui-win__sub rp-mono">Model 0.75 · grid 0.62</span><span class="ui-win__st is-done" data-st>Beat the grid</span><span class="ui-win__age">19 Jul</span></li><li class="ui-win__row" data-row data-key="2026-9" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="5">9</span><span class="ui-win__who">British GP</span><span class="ui-win__sub rp-mono">Model 0.64 · grid 0.58</span><span class="ui-win__st is-done" data-st>Beat the grid</span><span class="ui-win__age">5 Jul</span></li><li class="ui-win__row" data-row data-key="2026-8" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="4">8</span><span class="ui-win__who">Austrian GP</span><span class="ui-win__sub rp-mono">Model 0.94 · grid 0.94</span><span class="ui-win__st" data-st>Level</span><span class="ui-win__age">28 Jun</span></li><li class="ui-win__row" data-row data-key="2026-7" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="3">7</span><span class="ui-win__who">Barcelona GP</span><span class="ui-win__sub rp-mono">Model 0.67 · grid 0.74</span><span class="ui-win__st is-you" data-st>Behind the grid</span><span class="ui-win__age">14 Jun</span></li><li class="ui-win__row" data-row data-key="2026-6" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="2">6</span><span class="ui-win__who">Monaco GP</span><span class="ui-win__sub rp-mono">Model 0.40 · grid 0.37</span><span class="ui-win__st is-done" data-st>Beat the grid</span><span class="ui-win__age">7 Jun</span></li><li class="ui-win__row" data-row data-key="2026-5" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="1">5</span><span class="ui-win__who">Canadian GP</span><span class="ui-win__sub rp-mono">Model 0.39 · grid 0.40</span><span class="ui-win__st" data-st>Level</span><span class="ui-win__age">24 May</span></li><li class="ui-win__row" data-row data-key="2026-4" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="5">4</span><span class="ui-win__who">Miami GP</span><span class="ui-win__sub rp-mono">Model 0.61 · grid 0.71</span><span class="ui-win__st is-you" data-st>Behind the grid</span><span class="ui-win__age">3 May</span></li><li class="ui-win__row" data-row data-key="2026-3" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="4">3</span><span class="ui-win__who">Japanese GP</span><span class="ui-win__sub rp-mono">Model 0.89 · grid 0.92</span><span class="ui-win__st is-you" data-st>Behind the grid</span><span class="ui-win__age">29 Mar</span></li><li class="ui-win__row" data-row data-key="2026-2" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="3">2</span><span class="ui-win__who">Chinese GP</span><span class="ui-win__sub rp-mono">Model 0.55 · grid 0.60</span><span class="ui-win__st is-you" data-st>Behind the grid</span><span class="ui-win__age">15 Mar</span></li><li class="ui-win__row" data-row data-key="2026-1" role="button" tabindex="0" aria-pressed="false"><span class="ui-avatar" data-tone="2">1</span><span class="ui-win__who">Australian GP</span><span class="ui-win__sub rp-mono">Model 0.51 · grid 0.42</span><span class="ui-win__st is-done" data-st>Beat the grid</span><span class="ui-win__age">8 Mar</span></li><!--/rp:rows--></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="app__pane app__pane--open">
+          <div class="ui ui-panel rp-open" aria-live="polite" data-rp="open"><!--rp:open--><div class="rp-head"><b>Brazilian Grand Prix 2026</b><span>interlagos · 71 laps</span></div><div class="rp-open__sum"><span>Rank correlation <b class="rp-mono">0.84</b> model, <b class="rp-mono">0.42</b> grid</span><span class="rp-key"><i class="rp-dot rp-dot--grid"></i>Grid</span><span class="rp-key"><i class="rp-dot rp-dot--ring"></i>Predicted</span><span class="rp-key"><i class="rp-dot"></i>Result</span></div><div class="rp-rows"><div class="rp-row"><span class="rp-row__pos rp-mono">P1</span><span class="rp-row__name"><span class="rp-row__full">Norris</span><span class="rp-row__short">NOR</span></span><span class="rp-track"><i class="rp-span" style="left:0%;width:calc(4.761904761904762% - 0%)"></i><i class="rp-g" style="left:0%"></i><i class="rp-p" style="left:4.761904761904762%"></i><i class="rp-a" style="left:0%"></i></span><span class="rp-row__d rp-mono">+1</span></div><div class="rp-row is-gain"><span class="rp-row__pos rp-mono">P2</span><span class="rp-row__name"><span class="rp-row__full">Verstappen</span><span class="rp-row__short">VER</span></span><span class="rp-track"><i class="rp-span" style="left:4.761904761904762%;width:calc(19.047619047619047% - 4.761904761904762%)"></i><i class="rp-g" style="left:100%"></i><i class="rp-p" style="left:19.047619047619047%"></i><i class="rp-a" style="left:4.761904761904762%"></i></span><span class="rp-row__d rp-mono">+3</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">P3</span><span class="rp-row__name"><span class="rp-row__full">Hadjar</span><span class="rp-row__short">HAD</span></span><span class="rp-track"><i class="rp-span" style="left:9.523809523809524%;width:calc(9.523809523809524% - 9.523809523809524%)"></i><i class="rp-g" style="left:19.047619047619047%"></i><i class="rp-p" style="left:9.523809523809524%"></i><i class="rp-a" style="left:9.523809523809524%"></i></span><span class="rp-row__d rp-mono">0</span></div><div class="rp-row is-gain"><span class="rp-row__pos rp-mono">P4</span><span class="rp-row__name"><span class="rp-row__full">Russell</span><span class="rp-row__short">RUS</span></span><span class="rp-track"><i class="rp-span" style="left:14.285714285714285%;width:calc(33.33333333333333% - 14.285714285714285%)"></i><i class="rp-g" style="left:28.57142857142857%"></i><i class="rp-p" style="left:33.33333333333333%"></i><i class="rp-a" style="left:14.285714285714285%"></i></span><span class="rp-row__d rp-mono">+4</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">P5</span><span class="rp-row__name"><span class="rp-row__full">Antonelli</span><span class="rp-row__short">ANT</span></span><span class="rp-track"><i class="rp-span" style="left:0%;width:calc(19.047619047619047% - 0%)"></i><i class="rp-g" style="left:4.761904761904762%"></i><i class="rp-p" style="left:0%"></i><i class="rp-a" style="left:19.047619047619047%"></i></span><span class="rp-row__d rp-mono">−4</span></div><div class="rp-row is-gain"><span class="rp-row__pos rp-mono">P6</span><span class="rp-row__name"><span class="rp-row__full">Piastri</span><span class="rp-row__short">PIA</span></span><span class="rp-track"><i class="rp-span" style="left:23.809523809523807%;width:calc(42.857142857142854% - 23.809523809523807%)"></i><i class="rp-g" style="left:42.857142857142854%"></i><i class="rp-p" style="left:42.857142857142854%"></i><i class="rp-a" style="left:23.809523809523807%"></i></span><span class="rp-row__d rp-mono">+4</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">P7</span><span class="rp-row__name"><span class="rp-row__full">Lawson</span><span class="rp-row__short">LAW</span></span><span class="rp-track"><i class="rp-span" style="left:14.285714285714285%;width:calc(28.57142857142857% - 14.285714285714285%)"></i><i class="rp-g" style="left:9.523809523809524%"></i><i class="rp-p" style="left:14.285714285714285%"></i><i class="rp-a" style="left:28.57142857142857%"></i></span><span class="rp-row__d rp-mono">−3</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">P8</span><span class="rp-row__name"><span class="rp-row__full">Leclerc</span><span class="rp-row__short">LEC</span></span><span class="rp-track"><i class="rp-span" style="left:33.33333333333333%;width:calc(38.095238095238095% - 33.33333333333333%)"></i><i class="rp-g" style="left:61.904761904761905%"></i><i class="rp-p" style="left:38.095238095238095%"></i><i class="rp-a" style="left:33.33333333333333%"></i></span><span class="rp-row__d rp-mono">+1</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">P9</span><span class="rp-row__name"><span class="rp-row__full">Hamilton</span><span class="rp-row__short">HAM</span></span><span class="rp-track"><i class="rp-span" style="left:28.57142857142857%;width:calc(38.095238095238095% - 28.57142857142857%)"></i><i class="rp-g" style="left:90.47619047619048%"></i><i class="rp-p" style="left:28.57142857142857%"></i><i class="rp-a" style="left:38.095238095238095%"></i></span><span class="rp-row__d rp-mono">−2</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">P10</span><span class="rp-row__name"><span class="rp-row__full">Hülkenberg</span><span class="rp-row__short">HUL</span></span><span class="rp-track"><i class="rp-span" style="left:23.809523809523807%;width:calc(42.857142857142854% - 23.809523809523807%)"></i><i class="rp-g" style="left:14.285714285714285%"></i><i class="rp-p" style="left:23.809523809523807%"></i><i class="rp-a" style="left:42.857142857142854%"></i></span><span class="rp-row__d rp-mono">−4</span></div><div class="rp-row is-gain"><span class="rp-row__pos rp-mono">P11</span><span class="rp-row__name"><span class="rp-row__full">Lindblad</span><span class="rp-row__short">LIN</span></span><span class="rp-track"><i class="rp-span" style="left:47.61904761904761%;width:calc(71.42857142857143% - 47.61904761904761%)"></i><i class="rp-g" style="left:80.95238095238095%"></i><i class="rp-p" style="left:71.42857142857143%"></i><i class="rp-a" style="left:47.61904761904761%"></i></span><span class="rp-row__d rp-mono">+5</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">P12</span><span class="rp-row__name"><span class="rp-row__full">Alonso</span><span class="rp-row__short">ALO</span></span><span class="rp-track"><i class="rp-span" style="left:52.38095238095239%;width:calc(57.14285714285714% - 52.38095238095239%)"></i><i class="rp-g" style="left:33.33333333333333%"></i><i class="rp-p" style="left:57.14285714285714%"></i><i class="rp-a" style="left:52.38095238095239%"></i></span><span class="rp-row__d rp-mono">+1</span></div><div class="rp-row is-gain"><span class="rp-row__pos rp-mono">P13</span><span class="rp-row__name"><span class="rp-row__full">Colapinto</span><span class="rp-row__short">COL</span></span><span class="rp-track"><i class="rp-span" style="left:57.14285714285714%;width:calc(80.95238095238095% - 57.14285714285714%)"></i><i class="rp-g" style="left:57.14285714285714%"></i><i class="rp-p" style="left:80.95238095238095%"></i><i class="rp-a" style="left:57.14285714285714%"></i></span><span class="rp-row__d rp-mono">+5</span></div><div class="rp-row is-gain"><span class="rp-row__pos rp-mono">P14</span><span class="rp-row__name"><span class="rp-row__full">Gasly</span><span class="rp-row__short">GAS</span></span><span class="rp-track"><i class="rp-span" style="left:61.904761904761905%;width:calc(76.19047619047619% - 61.904761904761905%)"></i><i class="rp-g" style="left:66.66666666666666%"></i><i class="rp-p" style="left:76.19047619047619%"></i><i class="rp-a" style="left:61.904761904761905%"></i></span><span class="rp-row__d rp-mono">+3</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">P15</span><span class="rp-row__name"><span class="rp-row__full">Albon</span><span class="rp-row__short">ALB</span></span><span class="rp-track"><i class="rp-span" style="left:61.904761904761905%;width:calc(66.66666666666666% - 61.904761904761905%)"></i><i class="rp-g" style="left:38.095238095238095%"></i><i class="rp-p" style="left:61.904761904761905%"></i><i class="rp-a" style="left:66.66666666666666%"></i></span><span class="rp-row__d rp-mono">−1</span></div><div class="rp-row is-gain"><span class="rp-row__pos rp-mono">P16</span><span class="rp-row__name"><span class="rp-row__full">Bortoleto</span><span class="rp-row__short">BOR</span></span><span class="rp-track"><i class="rp-span" style="left:71.42857142857143%;width:calc(85.71428571428571% - 71.42857142857143%)"></i><i class="rp-g" style="left:85.71428571428571%"></i><i class="rp-p" style="left:85.71428571428571%"></i><i class="rp-a" style="left:71.42857142857143%"></i></span><span class="rp-row__d rp-mono">+3</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">P17</span><span class="rp-row__name"><span class="rp-row__full">Bearman</span><span class="rp-row__short">BEA</span></span><span class="rp-track"><i class="rp-span" style="left:47.61904761904761%;width:calc(76.19047619047619% - 47.61904761904761%)"></i><i class="rp-g" style="left:23.809523809523807%"></i><i class="rp-p" style="left:47.61904761904761%"></i><i class="rp-a" style="left:76.19047619047619%"></i></span><span class="rp-row__d rp-mono">−6</span></div><div class="rp-row is-gain"><span class="rp-row__pos rp-mono">P18</span><span class="rp-row__name"><span class="rp-row__full">Pérez</span><span class="rp-row__short">PER</span></span><span class="rp-track"><i class="rp-span" style="left:80.95238095238095%;width:calc(100% - 80.95238095238095%)"></i><i class="rp-g" style="left:100%"></i><i class="rp-p" style="left:100%"></i><i class="rp-a" style="left:80.95238095238095%"></i></span><span class="rp-row__d rp-mono">+4</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">P19</span><span class="rp-row__name"><span class="rp-row__full">Sainz</span><span class="rp-row__short">SAI</span></span><span class="rp-track"><i class="rp-span" style="left:66.66666666666666%;width:calc(85.71428571428571% - 66.66666666666666%)"></i><i class="rp-g" style="left:52.38095238095239%"></i><i class="rp-p" style="left:66.66666666666666%"></i><i class="rp-a" style="left:85.71428571428571%"></i></span><span class="rp-row__d rp-mono">−4</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">P20</span><span class="rp-row__name"><span class="rp-row__full">Camara</span><span class="rp-row__short">CAM</span></span><span class="rp-track"><i class="rp-span" style="left:52.38095238095239%;width:calc(90.47619047619048% - 52.38095238095239%)"></i><i class="rp-g" style="left:47.61904761904761%"></i><i class="rp-p" style="left:52.38095238095239%"></i><i class="rp-a" style="left:90.47619047619048%"></i></span><span class="rp-row__d rp-mono">−8</span></div><div class="rp-row"><span class="rp-row__pos rp-mono">DNF</span><span class="rp-row__name"><span class="rp-row__full">Stroll</span><span class="rp-row__short">STR</span></span><span class="rp-track"><i class="rp-span" style="left:90.47619047619048%;width:calc(95.23809523809523% - 90.47619047619048%)"></i><i class="rp-g" style="left:71.42857142857143%"></i><i class="rp-p" style="left:90.47619047619048%"></i></span><span class="rp-row__d rp-mono"></span></div><div class="rp-row"><span class="rp-row__pos rp-mono">DNF</span><span class="rp-row__name"><span class="rp-row__full">Bottas</span><span class="rp-row__short">BOT</span></span><span class="rp-track"><i class="rp-span" style="left:95.23809523809523%;width:calc(100% - 95.23809523809523%)"></i><i class="rp-g" style="left:76.19047619047619%"></i><i class="rp-p" style="left:95.23809523809523%"></i></span><span class="rp-row__d rp-mono"></span></div></div><!--/rp:open--></div>
+        </div>
       </div>
-      <div id="tyres"></div>
-      <h2 style="margin-top:14px;font-size:15px">Team wear vs the field</h2>
-      <p class="sub">Extra seconds lost per lap of tyre age. Blue is kinder to its tyres than average.</p>
-      <div id="teams"></div>
-    </section>
-  </div>
-
-  <section class="card" aria-labelledby="h-strategy">
-    <h2 id="h-strategy">Strategy</h2>
-    <p class="sub">The multi-car race simulator's stop call vs the top-10 finishers' most common strategy, and the live
-      assistant's best pit lap (asked 8 laps before each first stop) vs the real stop.</p>
-    <div class="verdict" id="verdict"></div>
-    <div class="legend" aria-hidden="true">
-      <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--series-1)"/></svg>Real first stop</span>
-      <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--series-2)" stroke-width="2"/></svg>Live assistant's best lap</span>
-      <span><svg width="14" height="14"><rect x="3" y="3" width="8" height="8" transform="rotate(45 7 7)" fill="var(--neutral-mark)"/></svg>Pre-race plan</span>
     </div>
-    <div id="pits"></div>
   </section>
 
-  <footer>
-    Data: Jolpica (results), OpenF1 (race control), TracingInsights (lap and tyre data), Open-Meteo (weather).
-    Every model is tested walk-forward: each season is predicted using only earlier races.
-    Before 2023, safety car laps are inferred from lap times. Methods and full results are in the
-    <a href="https://github.com/NironR/f1-predictor#readme">README</a>.
-  </footer>
+  <section class="section g2" id="models" aria-labelledby="models-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="models-h">Modelling every race from the start to the flag. <span class="muted">Each card follows the race you picked.</span></h2>
+        </div>
+        <div class="grid">
+          <article class="card card--row span-6">
+            <h3>Scoring safety car risk on every lap</h3>
+            <p>Built on lap 1, restarts, retirements and rain, it ranks the real starts at an AUC of <span data-rp="m-auc"><!--rp:m-auc-->0.79<!--/rp:m-auc--></span>.</p>
+            <div class="panel panel--flush" data-fx="painterly-landscape" data-fx-seed="21" data-fx-palette='{"bg":"#f0e9dd","surface":"#f6f1e8","ink":"#2a2622","accent":"#a8794a"}' data-fx-params='{"drift":0,"speed":0}'>
+              <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:480px;--ax:max(24px, 50% - 240px);--ay:40px;--ay-sm:16px">
+                <div class="ui ui-panel rp-frag" data-rp="f-sc" role="img" aria-label="Safety car risk for each lap of the picked race"><!--rp:f-sc--><div class="rp-head"><b>Safety car risk per lap</b><span class="rp-sp"></span><span>Brazilian GP 2026</span></div><div class="rp-bars"><i style="height:100%"></i><i style="height:3.135768435561682%"></i><i style="height:3.1013094417643003%"></i><i style="height:3.1013094417643003%"></i><i style="height:3.066850447966919%"></i><i style="height:3.066850447966919%"></i><i style="height:3.0323914541695385%"></i><i style="height:3.0323914541695385%"></i><i style="height:2.997932460372157%"></i><i style="height:2.997932460372157%"></i><i style="height:2.997932460372157%"></i><i style="height:2.9634734665747757%"></i><i style="height:2.9634734665747757%"></i><i style="height:2.929014472777395%"></i><i style="height:2.929014472777395%"></i><i style="height:2.8945554789800134%"></i><i style="height:2.8945554789800134%"></i><i style="height:2.8600964851826323%"></i><i style="height:2.8600964851826323%"></i><i style="height:2.8600964851826323%"></i><i style="height:2.8256374913852516%"></i><i style="height:2.8256374913852516%"></i><i style="height:2.7911784975878704%"></i><i style="height:2.7911784975878704%"></i><i style="height:2.7567195037904892%"></i><i style="height:2.7567195037904892%"></i><i style="height:2.7567195037904892%"></i><i style="height:2.7222605099931085%"></i><i style="height:2.7222605099931085%"></i><i style="height:2.687801516195727%"></i><i style="height:2.687801516195727%"></i><i style="height:27.463818056512746%"></i><i style="height:27.325982081323225%"></i><i style="height:2.7911784975878704%"></i><i style="height:2.7911784975878704%"></i><i style="height:2.7911784975878704%"></i><i style="height:2.7567195037904892%"></i><i style="height:2.7567195037904892%"></i><i style="height:2.7222605099931085%"></i><i style="height:2.7222605099931085%"></i><i style="height:2.687801516195727%"></i><i style="height:2.687801516195727%"></i><i style="height:2.687801516195727%"></i><i style="height:2.653342522398346%"></i><i style="height:2.653342522398346%"></i><i style="height:2.6188835286009646%"></i><i style="height:2.6188835286009646%"></i><i style="height:2.6188835286009646%"></i><i style="height:2.5844245348035835%"></i><i style="height:2.5844245348035835%"></i><i style="height:2.5499655410062028%"></i><i style="height:2.5499655410062028%"></i><i style="height:2.5499655410062028%"></i><i style="height:2.515506547208821%"></i><i style="height:2.515506547208821%"></i><i style="height:2.515506547208821%"></i><i style="height:2.48104755341144%"></i><i style="height:2.48104755341144%"></i><i style="height:2.4465885596140593%"></i><i style="height:2.4465885596140593%"></i><i style="height:2.4465885596140593%"></i><i style="height:2.412129565816678%"></i><i style="height:2.412129565816678%"></i><i style="height:2.412129565816678%"></i><i style="height:2.377670572019297%"></i><i style="height:2.377670572019297%"></i><i style="height:2.343211578221916%"></i><i style="height:2.343211578221916%"></i><i style="height:2.343211578221916%"></i><i style="height:2.3087525844245347%"></i><i style="height:2.3087525844245347%"></i></div><div class="rp-axis rp-mono"><span>Lap 1</span><span>Lap 71</span></div><p class="rp-note">No safety car. Risk averaged 1.4% a lap.</p><!--/rp:f-sc--></div>
+              </div></div>
+            </div>
+          </article>
+          <article class="card card--row span-6">
+            <h3>Measuring tyre wear for each compound</h3>
+            <p>Seconds lost per lap of tyre age, fitted on clean laps with fuel burn taken out.</p>
+            <div class="panel panel--flush" data-fx="painterly-landscape" data-fx-seed="22" data-fx-palette='{"bg":"#f0e9dd","surface":"#f6f1e8","ink":"#2a2622","accent":"#a8794a"}' data-fx-params='{"drift":0,"speed":0}'>
+              <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:480px;--ax:max(24px, 50% - 240px);--ay:40px;--ay-sm:16px">
+                <div class="ui ui-panel rp-frag" data-rp="f-tyres" role="img" aria-label="Tyre wear for each compound in the picked race"><!--rp:f-tyres--><div class="rp-head"><b>Tyre wear, seconds per lap of age</b><span class="rp-sp"></span><span>Brazilian GP 2026</span></div><div class="rp-lines"><div class="rp-line"><span>Soft</span><span class="rp-scale"><i class="rp-zero" style="left:59.77473853580049%"></i><i class="rp-se" style="left:0%;width:calc(35.237329042638784% - 0%)"></i><i class="rp-p" style="left:98.31053901850362%"></i><i class="rp-a" style="left:17.618664521319392%"></i></span><span class="rp-line__v rp-mono">−0.052</span></div></div><div class="rp-axis"><span class="rp-key"><i class="rp-dot rp-dot--ring"></i>Before the race</span><span class="rp-key"><i class="rp-dot"></i>Measured</span></div><!--/rp:f-tyres--></div>
+              </div></div>
+            </div>
+          </article>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="card card--row span-6">
+          <h3>Comparing tyre wear across teams</h3>
+          <p>Each team against the field: real over a season, rarely from race to race.</p>
+          <div class="panel panel--flush" data-fx="painterly-landscape" data-fx-seed="23" data-fx-palette='{"bg":"#f0e9dd","surface":"#f6f1e8","ink":"#2a2622","accent":"#a8794a"}' data-fx-params='{"drift":0,"speed":0}'>
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:480px;--ax:max(24px, 50% - 240px);--ay:40px;--ay-sm:16px">
+              <div class="ui ui-panel rp-frag" data-rp="f-teams" role="img" aria-label="Each team's tyre wear against the field in the picked race"><!--rp:f-teams--><div class="rp-head"><b>Team wear against the field</b><span class="rp-sp"></span><span>Brazilian GP 2026</span></div><div class="rp-lines"><div class="rp-line"><span>Racing Bulls</span><span class="rp-div"><i style="left:4.090909090909086%;width:45.909090909090914%"></i></span><span class="rp-line__v rp-mono">−0.040</span></div><div class="rp-line"><span>Haas</span><span class="rp-div"><i style="left:19.772727272727273%;width:30.227272727272727%"></i></span><span class="rp-line__v rp-mono">−0.027</span></div><div class="rp-line"><span>McLaren</span><span class="rp-div"><i style="left:37.38636363636363%;width:12.613636363636365%"></i></span><span class="rp-line__v rp-mono">−0.011</span></div><div class="rp-line"><span>Aston Martin</span><span class="rp-div"><i style="left:38.40909090909091%;width:11.590909090909092%"></i></span><span class="rp-line__v rp-mono">−0.010</span></div><div class="rp-line"><span>Mercedes</span><span class="rp-div"><i style="left:46.36363636363636%;width:3.6363636363636367%"></i></span><span class="rp-line__v rp-mono">−0.003</span></div><div class="rp-line"><span>Williams</span><span class="rp-div"><i style="left:47.27272727272727%;width:2.727272727272727%"></i></span><span class="rp-line__v rp-mono">−0.002</span></div><div class="rp-line"><span>Sauber / Audi</span><span class="rp-div"><i style="left:50%;width:10.454545454545455%"></i></span><span class="rp-line__v rp-mono">+0.009</span></div><div class="rp-line"><span>Ferrari</span><span class="rp-div"><i style="left:50%;width:11.250000000000002%"></i></span><span class="rp-line__v rp-mono">+0.010</span></div><div class="rp-line"><span>Cadillac</span><span class="rp-div"><i style="left:50%;width:15.795454545454547%"></i></span><span class="rp-line__v rp-mono">+0.014</span></div><div class="rp-line"><span>Red Bull</span><span class="rp-div"><i style="left:50%;width:20.113636363636363%"></i></span><span class="rp-line__v rp-mono">+0.018</span></div><div class="rp-line"><span>Alpine</span><span class="rp-div"><i class="is-top" style="left:50%;width:50%"></i></span><span class="rp-line__v rp-mono">+0.044</span></div></div><!--/rp:f-teams--></div>
+            </div></div>
+          </div>
+        </article>
+        <article class="card card--row span-6">
+          <h3>Calling the pit window</h3>
+          <p>Eight laps out, our assistant names a lap: within three of the real stop <span data-rp="m-pit"><!--rp:m-pit-->31%<!--/rp:m-pit--></span> of the time.</p>
+          <div class="panel panel--flush" data-fx="painterly-landscape" data-fx-seed="24" data-fx-palette='{"bg":"#f0e9dd","surface":"#f6f1e8","ink":"#2a2622","accent":"#a8794a"}' data-fx-params='{"drift":0,"speed":0}'>
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:480px;--ax:max(24px, 50% - 240px);--ay:40px;--ay-sm:16px">
+              <div class="ui ui-panel rp-frag" data-rp="f-pits" role="img" aria-label="Real first stops beside the live assistant's call in the picked race"><!--rp:f-pits--><div class="rp-head"><b>First stop: real and called</b><span class="rp-sp"></span><span>Brazilian GP 2026</span></div><p class="rp-empty">No replayed first stops for this race. The replay covers green-flag stops in dry races from 2023.</p><!--/rp:f-pits--></div>
+            </div></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section statement bg-dusk" id="statement" data-moment="word-highlight" aria-label="How we test">
+    <div class="wrap">
+      <p class="t-label">This is how</p>
+      <p class="mo-wh__text">We believe a prediction only counts when it is made before the race. Every number here comes from earlier races only, then gets scored against the simplest guess: <strong>the grid order</strong>.</p>
+    </div>
+  </section>
+
+  <section class="section" id="method" aria-labelledby="method-h">
+    <div class="wrap grid">
+        <div class="span-5 stack-5">
+          <h2 id="method-h">Building on four public data sources</h2>
+          <p class="t-lead">Designed to rebuild itself after every Grand Prix, with results from Jolpica, safety cars from OpenF1, laps and tyres from TracingInsights and weather from Open-Meteo in one place.</p>
+          <ul class="stack-2 rp-facts">
+            <li><span data-rp="laps"><!--rp:laps-->213,138<!--/rp:laps--></span> laps of timing data</li>
+            <li>8 core checks on every run</li>
+            <li>Python, pandas and scikit-learn</li>
+          </ul>
+          <p class="rp-method-link"><a class="link" href="https://github.com/NironR/f1-predictor#readme">Read the method notes</a></p>
+        </div>
+        <div class="frame frame--split span-6 start-7">
+          <div class="stage"><div class="dg" data-diagram data-dg-still><script type="application/json">{"layout": "bowtie", "alt": "Results, race control, lap times and weather go into one pipeline, which writes the predictions, rebuilds this page and runs the checks.", "sources": [{"label": "Jolpica", "icon": "ui:trophy", "sub": "Results"}, {"label": "OpenF1", "icon": "ui:flag", "sub": "Safety cars"}, {"label": "TracingInsights", "icon": "ui:timer", "sub": "Laps, tyres"}, {"label": "Open-Meteo", "icon": "ui:cloud-rain", "sub": "Weather"}], "core": {"label": "run_all.py", "icon": "python"}, "targets": [{"label": "Predictions", "icon": "ui:chart-column", "sub": "6 models"}, {"label": "This page", "icon": "github", "sub": "GitHub Pages"}, {"label": "Checks", "icon": "ui:circle-check", "sub": "8 tests"}]}</script></div></div>
+        </div>
+    </div>
+  </section>
+
+  <section class="section bg-band bg-bleed" id="results" aria-labelledby="results-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="results-h">Measuring every model against a simple baseline. <span class="muted">Scored on races it never saw.</span></h2>
+      </div>
+      <div class="rp-table" role="table" aria-label="Each model's score beside its baseline">
+        <div class="grid rp-table__row rp-table__row--head" role="row">
+          <span class="span-4" role="columnheader">What is predicted</span>
+          <span class="span-4 start-5" role="columnheader">Model</span>
+          <span class="span-4 start-9" role="columnheader">Baseline</span>
+        </div>
+        <div class="grid rp-table__row" role="row">
+          <span class="span-4" role="cell">Finishing order, rank correlation</span>
+          <span class="span-4 start-5 rp-table__v" role="cell" data-rp="r-finish"><!--rp:r-finish-->0.667<small>134 races, 2021 on</small><!--/rp:r-finish--></span>
+          <span class="span-4 start-9 rp-table__v" role="cell" data-rp="r-finish-b"><!--rp:r-finish-b-->0.633<small>Grid order</small><!--/rp:r-finish-b--></span>
+        </div>
+        <div class="grid rp-table__row" role="row">
+          <span class="span-4" role="cell">Safety car start, per lap (AUC)</span>
+          <span class="span-4 start-5 rp-table__v" role="cell" data-rp="r-sc"><!--rp:r-sc-->0.79<small>Lap 1, restarts, retirements, rain</small><!--/rp:r-sc--></span>
+          <span class="span-4 start-9 rp-table__v" role="cell" data-rp="r-sc-b"><!--rp:r-sc-b-->0.59<small>Lap 1 against the rest</small><!--/rp:r-sc-b--></span>
+        </div>
+        <div class="grid rp-table__row" role="row">
+          <span class="span-4" role="cell">Tyre wear error after 40 laps</span>
+          <span class="span-4 start-5 rp-table__v" role="cell" data-rp="r-tyre"><!--rp:r-tyre-->0.021 s<small>Updated from the race's own laps</small><!--/rp:r-tyre--></span>
+          <span class="span-4 start-9 rp-table__v" role="cell" data-rp="r-tyre-b"><!--rp:r-tyre-b-->0.033 s<small>Estimate before the start</small><!--/rp:r-tyre-b--></span>
+        </div>
+        <div class="grid rp-table__row" role="row">
+          <span class="span-4" role="cell">First stop called within 3 laps</span>
+          <span class="span-4 start-5 rp-table__v" role="cell" data-rp="r-pit"><!--rp:r-pit-->31%<small>Live assistant, 2024 on</small><!--/rp:r-pit--></span>
+          <span class="span-4 start-9 rp-table__v" role="cell" data-rp="r-pit-b"><!--rp:r-pit-b-->26%<small>Plan made before the race</small><!--/rp:r-pit-b--></span>
+        </div>
+        <div class="grid rp-table__row" role="row">
+          <span class="span-4" role="cell">Pit or stay out under a safety car</span>
+          <span class="span-4 start-5 rp-table__v" role="cell" data-rp="r-call"><!--rp:r-call-->61%<small>No better than the baseline</small><!--/rp:r-call--></span>
+          <span class="span-4 start-9 rp-table__v" role="cell" data-rp="r-call-b"><!--rp:r-call-b-->60%<small>Always pit</small><!--/rp:r-call-b--></span>
+        </div>
+      </div>
+      <p class="rp-table__more"><a class="link" href="https://github.com/NironR/f1-predictor#readme">Read the notes</a></p>
+    </div>
+  </section>
 </main>
-<div class="tip" id="tip" role="tooltip"></div>
+
+<footer class="footer closing footer--statement g2m" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--word">
+      <div class="section-head--split">
+        <div><h2 id="close-h">Putting every Grand Prix in one place</h2><p class="t-lead">Rebuilt on the Monday after each race weekend.</p></div>
+        <a class="btn btn--primary" href="#races">See race predictions<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+      </div>
+      <p class="close__word" aria-hidden="true">F1 Race Predictor</p>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top"><span class="mark" data-mark="dots" aria-hidden="true"></span>F1 Race Predictor</a>
+          <p class="footer__lede">Formula 1 predictions, checked against results.</p>
+        </div>
+        <div class="span-2 footer__col"><h3>Races</h3><ul><li><a href="#races">Race explorer</a></li><li><a href="#statement">How we test</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Models</h3><ul><li><a href="#models">Safety cars</a></li><li><a href="#models">Tyre wear</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Method</h3><ul><li><a href="#method">Data sources</a></li><li><a href="https://github.com/NironR/f1-predictor">Source code</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Results</h3><ul><li><a href="#results">Scores</a></li><li><a href="https://github.com/NironR/f1-predictor#readme">Method notes</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 F1 Race Predictor. An unofficial project: Formula 1 and F1 are trademarks of Formula One Licensing B.V.; other product names and logos are trademarks of their owners.</span>
+        <div class="socials"></div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<nav class="actionbar" aria-label="Quick actions">
+  <a class="btn btn--primary" href="#races">See race predictions</a>
+</nav>
 
 <script src="data.js"></script>
-<script>
-const D = window.F1;
-const $ = (id) => document.getElementById(id);
-const NS = "http://www.w3.org/2000/svg";
-const COMP = { SOFT: "Soft", MEDIUM: "Medium", HARD: "Hard" };
-const TEAM = { mercedes: "Mercedes", red_bull: "Red Bull", ferrari: "Ferrari", mclaren: "McLaren",
-  aston_martin: "Aston Martin", alpine: "Alpine", williams: "Williams", haas: "Haas", alphatauri: "AlphaTauri",
-  rb: "RB", alfa: "Alfa Romeo", sauber: "Sauber", racing_point: "Racing Point", renault: "Renault",
-  cadillac: "Cadillac", audi: "Audi" };
-
-function el(tag, attrs = {}, parent) {
-  const n = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
-  if (parent) parent.appendChild(n);
-  return n;
-}
-function text(parent, x, y, s, attrs = {}) { const t = el("text", { x, y, ...attrs }, parent); t.textContent = s; return t; }
-function pct(x, d = 0) { return (x * 100).toFixed(d) + "%"; }
-
-// ---- tooltip: one floating element, follows the pointer ----
-const tip = $("tip");
-function hover(node, html) {
-  node.addEventListener("pointerenter", () => { tip.innerHTML = html; tip.style.display = "block"; });
-  node.addEventListener("pointermove", (e) => {
-    const w = tip.offsetWidth, h = tip.offsetHeight;
-    tip.style.left = Math.min(e.clientX + 14, innerWidth - w - 8) + "px";
-    tip.style.top = (e.clientY + h + 24 > innerHeight ? e.clientY - h - 12 : e.clientY + 14) + "px";
-  });
-  node.addEventListener("pointerleave", () => { tip.style.display = "none"; });
-}
-
-// ---- headline tiles ----
-function tiles() {
-  const s = D.summary;
-  const items = [
-    ["Finishing order", s.finish.model_spearman.toFixed(3), `rank correlation vs ${s.finish.grid_spearman.toFixed(3)} for grid order, ${s.finish.races} races`],
-    ["Safety car, per lap", s.sc_lap.auc.toFixed(2), "AUC for which lap a safety car starts (0.5 = guessing)"],
-    ["Tyre wear, in race", `${s.tyre_in_race.mae_pre_race.toFixed(3)} → ${s.tyre_in_race.mae_after_40.toFixed(3)}`, "error (s/lap) before the start → after 40 laps"],
-    ["Pit timing", pct(s.assistant.pit_within_3), `of first stops called within 3 laps vs ${pct(s.assistant.pre_race_within_3)} pre-race (held out, 2024 on)`],
-    ["Pit under a safety car?", pct(s.sc_calls.model), `matches teams; "always pit" gets ${pct(s.sc_calls.always_pit)}. Not predictable from timing data`],
-  ];
-  $("tiles").innerHTML = items.map(([l, v, n]) =>
-    `<div class="tile"><div class="label">${l}</div><div class="value">${v}</div><div class="note">${n}</div></div>`).join("");
-}
-
-// ---- 1. finishing order dumbbell ----
-let tableView = false;
-function finish(race) {
-  const box = $("finish"); box.innerHTML = "";
-  const rows = race.finish;
-  if (tableView) {
-    box.innerHTML = `<table><thead><tr><th>Pos</th><th>Driver</th><th>Team</th><th class="num">Grid</th>
-      <th class="num">Predicted</th><th class="num">Beat prediction by</th></tr></thead><tbody>${rows.map(r =>
-      `<tr><td>${r.finished ? r.actual : "DNF"}</td><td>${r.name}</td><td>${TEAM[r.team] || r.team}</td>
-       <td class="num">${r.grid > 20 ? "pit lane" : r.grid}</td><td class="num">${r.pred}</td>
-       <td class="num">${r.finished ? (r.pred - r.actual > 0 ? "+" : "") + (r.pred - r.actual) : "–"}</td></tr>`).join("")}</tbody></table>`;
-  } else {
-    const W = box.clientWidth, narrow = W < 520, rowH = 22, top = 22, left = narrow ? 74 : 112, right = narrow ? 30 : 56;
-    const n = Math.max(20, ...rows.map(r => Math.max(r.pred, r.actual)));
-    const H = top + rows.length * rowH + 6;
-    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img",
-      "aria-label": `Predicted vs actual finishing positions, ${race.name}` }, box);
-    const x = (p) => left + (p - 1) / (n - 1) * (W - left - right);
-    for (const p of [1, 5, 10, 15, 20].filter(p => p <= n)) {
-      el("line", { x1: x(p), x2: x(p), y1: top - 6, y2: H - 4, stroke: "var(--grid)" }, svg);
-      text(svg, x(p), 12, "P" + p, { "text-anchor": "middle", class: "muted" });
-    }
-    rows.forEach((r, i) => {
-      const y = top + i * rowH + rowH / 2;
-      const g = el("g", {}, svg);
-      el("rect", { x: 0, y: y - rowH / 2, width: W, height: rowH, fill: "transparent" }, g);
-      text(g, 0, y + 4, `${r.finished ? "P" + r.actual : "DNF"}`, { class: "muted" });
-      text(g, 34, y + 4, narrow ? r.code : r.name, { class: "strong" });
-      const delta = r.pred - r.actual;
-      const color = !r.finished ? "var(--neutral-mark)" : delta > 0 ? "var(--better)" : delta < 0 ? "var(--worse)" : "var(--neutral-mark)";
-      el("line", { x1: x(r.pred), x2: x(r.actual), y1: y, y2: y, stroke: "var(--neutral-mark)", "stroke-width": 2 }, g);
-      el("circle", { cx: x(r.pred), cy: y, r: 5, fill: "var(--surface-1)", stroke: "var(--text-secondary)", "stroke-width": 2 }, g);
-      el("circle", { cx: x(r.actual), cy: y, r: r.pred === r.actual ? 3.5 : 5, fill: color, stroke: "var(--surface-1)", "stroke-width": r.pred === r.actual ? 0 : 2 }, g);
-      if (r.finished && Math.abs(delta) >= 3)
-        text(g, W - right + 10, y + 4, (delta > 0 ? "+" : "") + delta, { class: "strong" });
-      hover(g, `<b>${r.name}</b> · ${TEAM[r.team] || r.team}<br>Grid ${r.grid > 20 ? "pit lane" : r.grid} · predicted P${r.pred}<br>` +
-        (r.finished ? `Finished P${r.actual} (${delta > 0 ? "+" : ""}${delta} vs prediction)` : `Did not finish (classified P${r.actual})`));
-    });
-  }
-  const fin = rows.filter(r => r.finished);
-  const best = fin.reduce((a, b) => (b.pred - b.actual > a.pred - a.actual ? b : a), fin[0]);
-  const worst = fin.reduce((a, b) => (b.pred - b.actual < a.pred - a.actual ? b : a), fin[0]);
-  $("finish-callout").textContent = fin.length ?
-    `Biggest overperformer: ${best.name}, predicted P${best.pred}, finished P${best.actual}. ` +
-    `Biggest underperformer among finishers: ${worst.name}, predicted P${worst.pred}, finished P${worst.actual}.` : "";
-}
-
-// ---- 2. safety car hazard bars ----
-function sc(race) {
-  const box = $("sc"); box.innerHTML = "";
-  const s = race.sc;
-  if (!s.lap.length) { box.innerHTML = '<p class="empty">No lap-level predictions for this race.</p>'; $("sc-callout").textContent = ""; return; }
-  const W = box.clientWidth, H = 190, top = 14, bottom = 26, left = 34;
-  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": `Safety car risk by lap, ${race.name}` }, box);
-  const N = race.laps, maxP = Math.max(0.1, ...s.p);
-  const x = (l) => left + (l - 1) / N * (W - left - 4), bw = (W - left - 4) / N;
-  const y = (p) => H - bottom - p / maxP * (H - top - bottom);
-  s.starts.forEach((o, i) => el("rect", { x: x(o), y: top, width: Math.max(bw, (s.ends[i] - o + 1) * bw), height: H - top - bottom, fill: "var(--band)" }, svg));
-  for (const t of [0, maxP / 2, maxP]) {
-    el("line", { x1: left, x2: W, y1: y(t), y2: y(t), stroke: "var(--grid)" }, svg);
-    text(svg, left - 6, y(t) + 4, pct(t), { "text-anchor": "end", class: "muted" });
-  }
-  s.lap.forEach((l, i) => {
-    const h = H - bottom - y(s.p[i]);
-    const g = el("g", {}, svg);
-    el("rect", { x: x(l), y: top, width: bw, height: H - top - bottom, fill: "transparent" }, g);
-    el("rect", { x: x(l) + 0.5, y: H - bottom - Math.max(h, 1), width: Math.max(bw - 1, 1), height: Math.max(h, 1), rx: Math.min(2, bw / 3), fill: "var(--seq)" }, g);
-    hover(g, `<b>Lap ${l}</b><br>${pct(s.p[i], 1)} chance a safety car starts${s.starts.includes(l) ? "<br><b>A safety car started</b>" : ""}`);
-  });
-  s.starts.forEach((o) => {
-    el("path", { d: `M${x(o) + bw / 2} ${top - 2} l5 9 h-10 z`, fill: "var(--series-2)" }, svg);
-  });
-  for (const l of [1, Math.round(N / 2), N]) text(svg, x(l) + bw / 2, H - 8, "Lap " + l, { "text-anchor": "middle", class: "muted" });
-  const avg = s.p.reduce((a, b) => a + b, 0) / s.p.length;
-  const hit = s.starts.map(o => s.p[s.lap.indexOf(o)]).filter(v => v !== undefined);
-  $("sc-callout").textContent = s.starts.length
-    ? `${s.starts.length} safety car / red flag start${s.starts.length > 1 ? "s" : ""}. ` +
-      (hit.length ? `Predicted risk on those laps averaged ${pct(hit.reduce((a, b) => a + b, 0) / hit.length, 1)} vs ${pct(avg, 1)} across all laps.` : "") +
-      (s.inferred ? " (Pre-2023 safety cars are inferred from lap times.)" : "")
-    : `No safety car or red flag. Average predicted risk ${pct(avg, 1)} per lap.`;
-}
-
-// ---- 3. tyre wear dot plot + team wear diverging bars ----
-function tyres(race) {
-  const box = $("tyres"); box.innerHTML = "";
-  const t = race.tyres || {};
-  const comps = Object.keys(COMP).filter(c => t[c]);
-  if (!comps.length) { box.innerHTML = '<p class="empty">No dry-tyre wear measured for this race.</p>'; }
-  else {
-    const W = box.clientWidth, rowH = 30, top = 8, left = 64, H = top + comps.length * rowH + 22;
-    const vals = comps.flatMap(c => [t[c].measured - t[c].se, t[c].measured + t[c].se, t[c].pre ?? t[c].measured]);
-    const lo = Math.min(0, ...vals), hi = Math.max(0.05, ...vals);
-    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": `Tyre wear by compound, ${race.name}` }, box);
-    const x = (v) => left + (v - lo) / (hi - lo) * (W - left - 14);
-    const ticks = [lo, 0, hi / 2, hi].filter((v, i, a) => a.indexOf(v) === i && v >= lo);
-    for (const v of ticks) {
-      el("line", { x1: x(v), x2: x(v), y1: top, y2: H - 20, stroke: v === 0 ? "var(--neutral-mark)" : "var(--grid)" }, svg);
-      text(svg, x(v), H - 6, v.toFixed(2) + "s", { "text-anchor": "middle", class: "muted" });
-    }
-    comps.forEach((c, i) => {
-      const y = top + i * rowH + rowH / 2, d = t[c];
-      const g = el("g", {}, svg);
-      el("rect", { x: 0, y: y - rowH / 2, width: W, height: rowH, fill: "transparent" }, g);
-      text(g, 0, y + 4, COMP[c], { class: "strong" });
-      el("line", { x1: x(d.measured - d.se), x2: x(d.measured + d.se), y1: y, y2: y, stroke: "var(--series-1)", "stroke-width": 2 }, g);
-      if (d.pre !== null) el("circle", { cx: x(d.pre), cy: y, r: 5, fill: "var(--surface-1)", stroke: "var(--text-secondary)", "stroke-width": 2 }, g);
-      el("circle", { cx: x(d.measured), cy: y, r: 5, fill: "var(--series-1)", stroke: "var(--surface-1)", "stroke-width": 2 }, g);
-      hover(g, `<b>${COMP[c]}</b> (${d.laps} clean laps)<br>Measured ${d.measured.toFixed(3)} ± ${d.se.toFixed(3)} s per lap of age` +
-        (d.pre !== null ? `<br>Pre-race estimate ${d.pre.toFixed(3)} s` : ""));
-    });
-  }
-  const tb = $("teams"); tb.innerHTML = "";
-  const teams = race.teams || [];
-  if (!teams.length) { tb.innerHTML = '<p class="empty">No team wear for this race.</p>'; return; }
-  const W = tb.clientWidth, rowH = 20, left = 104, H = teams.length * rowH + 4;
-  const m = Math.max(0.02, ...teams.map(d => Math.abs(d.tw)));
-  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": "Team tyre wear vs the field" }, tb);
-  const mid = left + (W - left - 8) / 2, sx = (v) => v / m * (W - left - 8) / 2;
-  el("line", { x1: mid, x2: mid, y1: 0, y2: H, stroke: "var(--neutral-mark)" }, svg);
-  teams.forEach((d, i) => {
-    const y = i * rowH + 3, w = sx(d.tw);
-    const g = el("g", {}, svg);
-    el("rect", { x: 0, y, width: W, height: rowH - 2, fill: "transparent" }, g);
-    text(g, 0, y + 12, d.team);
-    el("rect", { x: w < 0 ? mid + w : mid, y: y + 3, width: Math.max(Math.abs(w), 1), height: rowH - 8, rx: 3,
-      fill: d.tw < 0 ? "var(--better)" : "var(--worse)" }, g);
-    hover(g, `<b>${d.team}</b><br>${d.tw > 0 ? "+" : ""}${d.tw.toFixed(3)} s per lap of tyre age vs the field` +
-      (d.pred !== null ? `<br>Forecast from its earlier races: ${d.pred > 0 ? "+" : ""}${d.pred.toFixed(3)} s` : ""));
-  });
-}
-
-// ---- 4. strategy verdict + pit-lap strip ----
-function strategy(race) {
-  const v = $("verdict"), s = race.strategy;
-  const stops = (k) => (k >= 2 ? "2+ stops" : "1 stop");
-  v.innerHTML = s ? [
-    `<div><span>Top-10 finishers mostly made <b>${stops(s.actual)}</b>.</span></div>`,
-    ...[["Multi-car simulator", s.sim], ["Time-only simulator", s.time_only], ["This track's history", s.history]].map(([n, k]) =>
-      `<div><span class="icon ${k === s.actual ? "ok" : "miss"}" aria-hidden="true">${k === s.actual ? "✓" : "✗"}</span>
-       ${n} said ${stops(k)} <span class="sr-only">(${k === s.actual ? "correct" : "wrong"})</span></div>`)
-  ].join("") : '<p class="empty">Not in the strategy backtest (wet race, or no tyre data).</p>';
-  const box = $("pits"); box.innerHTML = "";
-  const rows = race.pit_window;
-  if (!rows.length) { box.innerHTML = '<p class="empty">No live-assistant replay for this race (it covers dry races from 2023, top-6 green-flag first stops).</p>'; return; }
-  const W = box.clientWidth, rowH = 24, top = 18, left = 48, H = top + rows.length * rowH + 4, N = race.laps;
-  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": "Real vs recommended first pit stop laps" }, box);
-  const x = (l) => left + (l - 1) / (N - 1) * (W - left - 10);
-  for (const l of [1, 10, 20, 30, 40, 50, 60, 70].filter(l => l <= N)) {
-    el("line", { x1: x(l), x2: x(l), y1: top - 4, y2: H, stroke: "var(--grid)" }, svg);
-    text(svg, x(l), 10, "Lap " + l, { "text-anchor": "middle", class: "muted" });
-  }
-  rows.forEach((r, i) => {
-    const y = top + i * rowH + rowH / 2;
-    const g = el("g", {}, svg);
-    el("rect", { x: 0, y: y - rowH / 2, width: W, height: rowH, fill: "transparent" }, g);
-    text(g, 0, y + 4, r.code, { class: "strong" });
-    el("line", { x1: x(Math.min(r.actual, r.assistant)), x2: x(Math.max(r.actual, r.assistant)), y1: y, y2: y, stroke: "var(--neutral-mark)", "stroke-width": 2 }, g);
-    el("rect", { x: x(r.pre_race) - 4, y: y - 4, width: 8, height: 8, transform: `rotate(45 ${x(r.pre_race)} ${y})`, fill: "var(--neutral-mark)" }, g);
-    el("circle", { cx: x(r.actual), cy: y, r: 5, fill: "var(--series-1)", stroke: "var(--surface-1)", "stroke-width": 2 }, g);
-    el("circle", { cx: x(r.assistant), cy: y, r: 5, fill: "var(--surface-1)", stroke: "var(--series-2)", "stroke-width": 2 }, g);
-    const err = r.assistant - r.actual;
-    hover(g, `<b>${r.code}</b><br>Real first stop: lap ${r.actual}<br>Assistant (asked after lap ${r.actual - 8}): lap ${r.assistant} ` +
-      `(${err === 0 ? "exact" : (err > 0 ? err + " late" : -err + " early")})<br>Pre-race plan: lap ${r.pre_race}`);
-  });
-}
-
-// ---- filters ----
-const seasons = [...new Set(D.races.map(r => r.season))];
-$("season").innerHTML = seasons.map(s => `<option>${s}</option>`).join("");
-function fillRaces() {
-  const s = +$("season").value;
-  $("race").innerHTML = D.races.filter(r => r.season === s).map(r =>
-    `<option value="${r.round}">R${r.round} · ${r.name.replace(" Grand Prix", " GP")}</option>`).join("");
-}
-function current() { return D.races.find(r => r.season === +$("season").value && r.round === +$("race").value); }
-function render() {
-  const r = current(); if (!r) return;
-  finish(r); sc(r); tyres(r); strategy(r);
-  try { localStorage.setItem("f1-race", `${r.season}-${r.round}`); } catch (e) {}
-}
-$("season").addEventListener("change", () => { fillRaces(); render(); });
-$("race").addEventListener("change", render);
-$("finish-toggle").addEventListener("click", (e) => {
-  tableView = !tableView;
-  e.target.setAttribute("aria-pressed", tableView);
-  e.target.textContent = tableView ? "Chart view" : "Table view";
-  render();
-});
-let resizeTimer;
-addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 120); });
-
-// ---- theme toggle ----
-function setThemeLabel() {
-  const dark = document.documentElement.dataset.theme === "dark" ||
-    (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
-  $("theme").textContent = dark ? "Light mode" : "Dark mode";
-  return dark;
-}
-$("theme").addEventListener("click", () => {
-  const dark = setThemeLabel();
-  document.documentElement.dataset.theme = dark ? "light" : "dark";
-  try { localStorage.setItem("f1-theme", document.documentElement.dataset.theme); } catch (e) {}
-  setThemeLabel();
-});
-
-// ---- start: last viewed race, else a recent dry race with everything filled in ----
-try { const th = localStorage.getItem("f1-theme"); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
-setThemeLabel();
-let start = null;
-try { start = localStorage.getItem("f1-race"); } catch (e) {}
-const fallback = D.races.filter(r => r.pit_window.length && r.sc.starts.length).at(-1) || D.races.at(-1);
-const [s0, r0] = (start || `${fallback.season}-${fallback.round}`).split("-").map(Number);
-$("season").value = D.races.some(r => r.season === s0) ? s0 : fallback.season;
-fillRaces();
-$("race").value = D.races.some(r => r.season === s0 && r.round === r0) ? r0 : $("race").options[0].value;
-tiles();
-render();
-</script>
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+<script type="module" src="assets/diagrams/mount.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>

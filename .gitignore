@@ -8,3 +8,4 @@ data/tyre_laps.csv
 skills-lock.json
 *.log
 data/sc_lap_table.csv
+.taste-skill/
